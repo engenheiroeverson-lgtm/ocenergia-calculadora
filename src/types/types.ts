@@ -1,82 +1,82 @@
-export type OrigemDados =
-  | 'manual'
-  | 'fatura'
-  | 'relatorio_massa';
+export interface DadosParciaisFatura {
+  tensaoV?: number;
+  potenciaAtivaKw?: number;
+  fpAtual?: number;
+  energiaAtivaKwh?: number;
+  energiaReativaKvarh?: number;
+  energiaAtivaForaPontaKwh?: number;
+  energiaAtivaPontaKwh?: number;
+  energiaReativaForaPontaKvarh?: number;
+  energiaReativaPontaKvarh?: number;
+  demandaKw?: number;
+  demandaPontaKw?: number;
+  demandaForaPontaKw?: number;
+  demandaTusdgKw?: number;
+  diasFaturados?: number;
+  variacaoCargaPct?: number;
+  origemDados: string;
+  demandaMinKw?: number;
+  demandaMaxKw?: number;
+  observacoes?: string;
+}
 
-export type DadosNormalizadosFP = {
-  origemDados: OrigemDados;
+export interface ResultadoExtracaoParcial {
+  status: string;
+  origemDados: string;
+  mensagem: string;
+  camposFaltantes: string[];
+  dadosParciais: DadosParciaisFatura;
+}
+
+export interface DadosNormalizadosFP {
   potenciaAtivaKw: number;
   fpAtual: number;
+  fpAlvo: number;
   tensaoV: number;
-  fpAlvo?: number;
   energiaAtivaKwh?: number;
   energiaReativaKvarh?: number;
   demandaKw?: number;
   demandaMinKw?: number;
   demandaMaxKw?: number;
   variacaoCargaPct?: number;
+  origemDados: string;
   observacoes?: string;
-};
+  energiaAtivaPontaKwh?: number;
+  energiaAtivaForaPontaKwh?: number;
+  energiaReativaPontaKvarh?: number;
+  energiaReativaForaPontaKvarh?: number;
+  demandaPontaKw?: number;
+  demandaForaPontaKw?: number;
+  demandaTusdgKw?: number;
+  diasFaturados?: number;
+}
 
-export type EntradaManual = {
-  origemDados: OrigemDados;
-  potenciaAtivaKw: string;
-  fpAtual: string;
-  tensaoV: string;
-  fpAlvo?: string;
-  energiaAtivaKwh?: string;
-  energiaReativaKvarh?: string;
-  demandaKw?: string;
-  demandaMinKw?: string;
-  demandaMaxKw?: string;
-  variacaoCargaPct?: string;
-  observacoes?: string;
-};
-
-export type EtapaBanco = {
+export interface EtapaBanco {
   kvar: number;
   quantidade: number;
-};
+}
 
-export type BancoCapacitor = {
+export interface BancoRecomendado {
   estrategia: string;
-  etapas: EtapaBanco[];
   totalKvarInstalado: number;
+  etapas: EtapaBanco[];
   alerta?: string;
-};
+}
 
-export type ResultadoCalculadoraIndustrial = {
-  potenciaAtivaKw: number;
+export interface ResultadoCalculadoraIndustrial {
   fpAtual: number;
   fpAlvo: number;
+  potenciaAtivaKw: number;
   tensaoV: number;
   nivelTensao: string;
   qcKvar: number;
   qcComMargemKvar: number;
   tipoBancoRecomendado: string;
   tipoLigacaoSugerida: string;
-  banco: BancoCapacitor;
+  tensaoTrabalhoCapacitor: string;
+  normaAplicavel: string;
+  banco: BancoRecomendado;
   precisaCorrecao: boolean;
   mensagem: string;
   observacoesTecnicas: string[];
-};
-
-export type ResultadoExtracaoParcial = {
-  status: 'completo' | 'parcial';
-  origemDados: OrigemDados;
-  camposFaltantes: string[];
-  mensagem: string;
-  dadosParciais: Partial<DadosNormalizadosFP>;
-};
-
-export type ResultadoExtracaoRelatorioMassa = ResultadoExtracaoParcial & {
-  totalRegistros: number;
-  registros: {
-    indice: number;
-    dadosParciais: Partial<DadosNormalizadosFP>;
-    camposFaltantes: string[];
-    status: 'completo' | 'parcial';
-    score: number;
-  }[];
-  resumo: string;
-};
+}

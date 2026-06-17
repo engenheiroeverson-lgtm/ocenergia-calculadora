@@ -1,124 +1,121 @@
-import type {
-    DadosNormalizadosFP,
-    ResultadoExtracaoParcial,
-  } from '../../types/types';
-  
-  type ComplementoParcial = {
-    potenciaAtivaKw?: number;
-    fpAtual?: number;
-    tensaoV?: number;
-    fpAlvo?: number;
-    energiaAtivaKwh?: number;
-    energiaReativaKvarh?: number;
-    demandaKw?: number;
-    demandaMinKw?: number;
-    demandaMaxKw?: number;
-    variacaoCargaPct?: number;
-    observacoes?: string;
+import type { DadosNormalizadosFP, ResultadoExtracaoParcial } from '../../types/types';
+
+type ComplementoManual = Partial<Omit<DadosNormalizadosFP, 'origemDados'>>;
+
+function toNumber(valor: unknown): number | undefined {
+  if (valor === undefined || valor === null || valor === '') return undefined;
+  if (typeof valor === 'number') return Number.isFinite(valor) ? valor : undefined;
+  const texto = String(valor)
+    .trim()
+    .replace(/\./g, '')
+    .replace(',', '.')
+    .replace(/[^\d.-]/g, '');
+  if (!texto) return undefined;
+  const numero = Number(texto);
+  return Number.isFinite(numero) ? numero : undefined;
+}
+
+function primeiroNumero(...valores: Array<number | undefined>): number | undefined {
+  for (const v of valores) {
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+  }
+  return undefined;
+}
+
+function calcularFp(energiaAtivaKwh?: number, energiaReativaKvarh?: number): number | undefined {
+  if (typeof energiaAtivaKwh !== 'number' || typeof energiaReativaKvarh !== 'number' || energiaAtivaKwh <= 0) {
+    return undefined;
+  }
+  return energiaAtivaKwh / Math.sqrt(energiaAtivaKwh ** 2 + energiaReativaKvarh ** 2);
+}
+
+export function completarDadosParciais(
+  base: ResultadoExtracaoParcial,
+  complemento: ComplementoManual = {},
+): DadosNormalizadosFP {
+  const parcial = base.dadosParciais || {};
+
+  const energiaAtivaPontaKwh = primeiroNumero(toNumber(complemento.energiaAtivaPontaKwh), parcial.energiaAtivaPontaKwh);
+  const energiaAtivaForaPontaKwh = primeiroNumero(toNumber(complemento.energiaAtivaForaPontaKwh), parcial.energiaAtivaForaPontaKwh);
+  const energiaReativaPontaKvarh = primeiroNumero(toNumber(complemento.energiaReativaPontaKvarh), parcial.energiaReativaPontaKvarh);
+  const energiaReativaForaPontaKvarh = primeiroNumero(toNumber(complemento.energiaReativaForaPontaKvarh), parcial.energiaReativaForaPontaKvarh);
+
+  const energiaAtivaKwh = primeiroNumero(
+    toNumber(complemento.energiaAtivaKwh),
+    parcial.energiaAtivaKwh,
+    energiaAtivaPontaKwh !== undefined && energiaAtivaForaPontaKwh !== undefined ? energiaAtivaPontaKwh + energiaAtivaForaPontaKwh : undefined
+  );
+
+  const energiaReativaKvarh = primeiroNumero(
+    toNumber(complemento.energiaReativaKvarh),
+    parcial.energiaReativaKvarh,
+    energiaReativaPontaKvarh !== undefined && energiaReativaForaPontaKvarh !== undefined ? energiaReativaPontaKvarh + energiaReativaForaPontaKvarh : undefined
+  );
+
+  const demandaPontaKw = primeiroNumero(toNumber(complemento.demandaPontaKw), parcial.demandaPontaKw);
+  const demandaForaPontaKw = primeiroNumero(toNumber(complemento.demandaForaPontaKw), parcial.demandaForaPontaKw);
+  const demandaTusdgKw = primeiroNumero(toNumber(complemento.demandaTusdgKw), parcial.demandaTusdgKw);
+
+  const demandaKw = primeiroNumero(
+    toNumber(complemento.demandaKw),
+    parcial.demandaKw,
+    demandaForaPontaKw,
+    demandaPontaKw,
+    demandaTusdgKw
+  );
+
+  const potenciaAtivaKw = primeiroNumero(
+    toNumber(complemento.potenciaAtivaKw),
+    parcial.potenciaAtivaKw,
+    demandaForaPontaKw,
+    demandaKw,
+    demandaPontaKw,
+    demandaTusdgKw
+  ) ?? (typeof energiaAtivaKwh === 'number' && typeof parcial.diasFaturados === 'number' && parcial.diasFaturados > 0
+    ? energiaAtivaKwh / (parcial.diasFaturados * 24)
+    : undefined);
+
+  const tensaoV = primeiroNumero(toNumber(complemento.tensaoV), parcial.tensaoV);
+  const fpManual = primeiroNumero(toNumber(complemento.fpAtual), parcial.fpAtual);
+  const fpCalculado = calcularFp(energiaAtivaKwh, energiaReativaKvarh);
+  const fpAtual = fpManual ?? fpCalculado;
+  const fpAlvo = primeiroNumero(toNumber(complemento.fpAlvo), parcial.fpAlvo) ?? 0.95;
+
+  const variacaoCargaPct = primeiroNumero(toNumber(complemento.variacaoCargaPct), parcial.variacaoCargaPct) ??
+    (typeof demandaPontaKw === 'number' && typeof demandaForaPontaKw === 'number' && Math.max(demandaPontaKw, demandaForaPontaKw) > 0
+      ? (Math.abs(demandaPontaKw - demandaForaPontaKw) / Math.max(demandaPontaKw, demandaForaPontaKw)) * 100
+      : undefined);
+
+  if (typeof potenciaAtivaKw !== 'number') {
+    throw new Error('Não foi possível definir a potência ativa. Informe a demanda ou a potência manualmente.');
+  }
+  if (typeof tensaoV !== 'number') {
+    throw new Error('Não foi possível definir a tensão. Informe a tensão manualmente.');
+  }
+  if (typeof fpAtual !== 'number') {
+    throw new Error('Não foi possível calcular o FP atual. Informe o FP manual.');
+  }
+
+  return {
+    potenciaAtivaKw,
+    fpAtual,
+    fpAlvo,
+    tensaoV,
+    energiaAtivaKwh,
+    energiaReativaKvarh,
+    demandaKw,
+    demandaMinKw: primeiroNumero(toNumber(complemento.demandaMinKw)),
+    demandaMaxKw: primeiroNumero(toNumber(complemento.demandaMaxKw)),
+    variacaoCargaPct,
+    origemDados: base.origemDados ?? 'manual',
+    observacoes: complemento.observacoes,
+    energiaAtivaPontaKwh,
+    energiaAtivaForaPontaKwh,
+    energiaReativaPontaKvarh,
+    energiaReativaForaPontaKvarh,
+    demandaPontaKw,
+    demandaForaPontaKw,
+    demandaTusdgKw,
+    diasFaturados: parcial.diasFaturados,
   };
-  
-  function isNumeroValido(valor: unknown): valor is number {
-    return typeof valor === 'number' && Number.isFinite(valor);
-  }
-  
-  function validarObrigatorio(valor: number | undefined, nomeCampo: string): number {
-    if (!isNumeroValido(valor)) {
-      throw new Error(`Campo obrigatório ausente ou inválido: ${nomeCampo}`);
-    }
-    return valor;
-  }
-  
-  function juntarObservacoes(
-    observacaoOriginal?: string,
-    observacaoExtra?: string,
-  ): string | undefined {
-    const partes = [observacaoOriginal?.trim(), observacaoExtra?.trim()].filter(Boolean);
-    if (partes.length === 0) return undefined;
-    return partes.join(' | ');
-  }
-  
-  export function completarDadosParciais(
-    extracao: ResultadoExtracaoParcial,
-    complemento: ComplementoParcial = {},
-  ): DadosNormalizadosFP {
-    const dados = extracao.dadosParciais ?? {};
-  
-    const potenciaAtivaKw = validarObrigatorio(
-      complemento.potenciaAtivaKw ?? dados.potenciaAtivaKw,
-      'potenciaAtivaKw',
-    );
-  
-    const fpAtual = validarObrigatorio(
-      complemento.fpAtual ?? dados.fpAtual,
-      'fpAtual',
-    );
-  
-    const tensaoV = validarObrigatorio(
-      complemento.tensaoV ?? dados.tensaoV,
-      'tensaoV',
-    );
-  
-    const fpAlvo = complemento.fpAlvo ?? dados.fpAlvo ?? 0.95;
-  
-    if (fpAlvo <= 0 || fpAlvo > 1) {
-      throw new Error('Campo inválido: fpAlvo');
-    }
-  
-    if (fpAtual <= 0 || fpAtual > 1) {
-      throw new Error('Campo inválido: fpAtual');
-    }
-  
-    if (potenciaAtivaKw <= 0) {
-      throw new Error('Campo inválido: potenciaAtivaKw');
-    }
-  
-    if (tensaoV <= 0) {
-      throw new Error('Campo inválido: tensaoV');
-    }
-  
-    const energiaAtivaKwh = complemento.energiaAtivaKwh ?? dados.energiaAtivaKwh;
-    const energiaReativaKvarh = complemento.energiaReativaKvarh ?? dados.energiaReativaKvarh;
-    const demandaKw = complemento.demandaKw ?? dados.demandaKw;
-    const demandaMinKw = complemento.demandaMinKw ?? dados.demandaMinKw;
-    const demandaMaxKw = complemento.demandaMaxKw ?? dados.demandaMaxKw;
-    const variacaoCargaPct = complemento.variacaoCargaPct ?? dados.variacaoCargaPct;
-  
-    return {
-      origemDados: extracao.origemDados,
-      potenciaAtivaKw,
-      fpAtual,
-      tensaoV,
-      fpAlvo,
-      observacoes: juntarObservacoes(
-        dados.observacoes,
-        complemento.observacoes,
-      ),
-      energiaAtivaKwh,
-      energiaReativaKvarh,
-      demandaKw,
-      demandaMinKw,
-      demandaMaxKw,
-      variacaoCargaPct,
-    };
-  }
-  
-  export function listarCamposFaltantesParaCompletar(
-    extracao: ResultadoExtracaoParcial,
-    complemento: ComplementoParcial = {},
-  ): string[] {
-    const faltantes = new Set<string>(extracao.camposFaltantes ?? []);
-  
-    if (!isNumeroValido(complemento.potenciaAtivaKw) && !isNumeroValido(extracao.dadosParciais.potenciaAtivaKw)) {
-      faltantes.add('potenciaAtivaKw');
-    }
-  
-    if (!isNumeroValido(complemento.fpAtual) && !isNumeroValido(extracao.dadosParciais.fpAtual)) {
-      faltantes.add('fpAtual');
-    }
-  
-    if (!isNumeroValido(complemento.tensaoV) && !isNumeroValido(extracao.dadosParciais.tensaoV)) {
-      faltantes.add('tensaoV');
-    }
-  
-    return Array.from(faltantes);
-  }
+}
