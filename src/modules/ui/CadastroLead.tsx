@@ -10,9 +10,10 @@ export type DadosLead = {
   lgpd: boolean;
 };
 
+// Tornando as propriedades opcionais com ? para aceitar chamadas vazias <CadastroLead />
 type Props = {
-  onSalvar: (dados: DadosLead) => void;
-  dadosSalvos: DadosLead | null;
+  onSalvar?: (dados: DadosLead) => void;
+  dadosSalvos?: DadosLead | null;
 };
 
 const estadoInicial: DadosLead = {
@@ -31,7 +32,7 @@ const ESTADOS_BR = [
   'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
 ];
 
-export default function CadastroLead({ onSalvar, dadosSalvos }: Props) {
+export default function CadastroLead({ onSalvar, dadosSalvos = null }: Props) {
   const [form, setForm] = useState<DadosLead>(dadosSalvos ?? estadoInicial);
   const [salvo, setSalvo] = useState<boolean>(!!dadosSalvos);
   const [erro, setErro] = useState<string>('');
@@ -115,7 +116,7 @@ export default function CadastroLead({ onSalvar, dadosSalvos }: Props) {
     }
 
     setSalvo(true);
-    onSalvar(form);
+    if (onSalvar) onSalvar(form);
   }
 
   function editar() {

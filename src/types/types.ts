@@ -1,7 +1,35 @@
+export type OrigemDados = 'fatura' | 'manual' | 'lote' | string;
+
+// Apelido mantido para o motor do banco industrial
+export type BancoCapacitor = BancoRecomendado;
+
+// Interface correta para capturar as strings brutas digitadas no formulário manual
+export interface EntradaManual {
+  potenciaAtivaKw: string;
+  fpAtual: string;
+  tensaoV: string;
+  fpAlvo: string;
+  origemDados: string;
+  observacoes?: string;
+  energiaAtivaKwh?: string;
+  energiaReativaKvarh?: string;
+  demandaKw?: string;
+  demandaMinKw?: string;
+  demandaMaxKw?: string;
+  variacaoCargaPct?: string;
+  energiaAtivaPontaKwh?: string;
+  energiaAtivaForaPontaKwh?: string;
+  energiaReativaPontaKvarh?: string;
+  energiaReativaForaPontaKvarh?: string;
+  demandaPontaKw?: string;
+  demandaForaPontaKw?: string;
+}
+
 export interface DadosParciaisFatura {
   tensaoV?: number;
   potenciaAtivaKw?: number;
   fpAtual?: number;
+  fpAlvo?: number;
   energiaAtivaKwh?: number;
   energiaReativaKvarh?: number;
   energiaAtivaForaPontaKwh?: number;
@@ -18,6 +46,7 @@ export interface DadosParciaisFatura {
   demandaMinKw?: number;
   demandaMaxKw?: number;
   observacoes?: string;
+  valorReativaRS?: number;
 }
 
 export interface ResultadoExtracaoParcial {
@@ -73,8 +102,8 @@ export interface ResultadoCalculadoraIndustrial {
   qcComMargemKvar: number;
   tipoBancoRecomendado: string;
   tipoLigacaoSugerida: string;
-  tensaoTrabalhoCapacitor: string;
-  normaAplicavel: string;
+  tensaoTrabalhoCapacitor?: string;
+  normaAplicavel?: string;
   banco: BancoRecomendado;
   precisaCorrecao: boolean;
   mensagem: string;

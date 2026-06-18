@@ -2,9 +2,30 @@ import React, { useMemo, useState } from 'react';
 import { normalizarEntradaManual } from '../normalizador/normalizador';
 import { calcularBancoCapacitorIndustrial } from '../calculadora/calculadoraIndustrial';
 import ResultadoTecnico from './ResultadoTecnico';
-import type { EntradaManual, ResultadoCalculadoraIndustrial } from '../../types/types';
+import CadastroLead from './CadastroLead'; // Importação do componente comercial
+import type { DadosLead } from './CadastroLead';
+import type { ResultadoCalculadoraIndustrial } from '../../types/types';
 
-type FormState = Omit<EntradaManual, 'origemDados'>;
+// Como EntradaManual foi removido do types central, tipamos a estrutura local do FormState de forma segura
+type FormState = {
+  potenciaAtivaKw: string;
+  fpAtual: string;
+  tensaoV: string;
+  fpAlvo: string;
+  energiaAtivaKwh: string;
+  energiaReativaKvarh: string;
+  demandaKw: string;
+  demandaMinKw: string;
+  demandaMaxKw: string;
+  variacaoCargaPct: string;
+  observacoes: string;
+  energiaAtivaPontaKwh: string;
+  energiaAtivaForaPontaKwh: string;
+  energiaReativaPontaKvarh: string;
+  energiaReativaForaPontaKvarh: string;
+  demandaPontaKw: string;
+  demandaForaPontaKw: string;
+};
 
 const estadoInicial: FormState = {
   potenciaAtivaKw: '',
@@ -36,6 +57,7 @@ export default function FormularioManual() {
   const [resultado, setResultado] = useState<ResultadoCalculadoraIndustrial | null>(null);
   const [erro, setErro] = useState<string>('');
   const [mensagem, setMensagem] = useState<string>('');
+  const [dadosLead, setDadosLead] = useState<DadosLead | null>(null);
 
   const camposPreenchidos = useMemo(() => {
     return Object.entries(form)
@@ -59,6 +81,7 @@ export default function FormularioManual() {
     setResultado(null);
     setErro('');
     setMensagem('');
+    setDadosLead(null);
   }
 
   function calcular() {
@@ -372,7 +395,14 @@ export default function FormularioManual() {
 
       {mensagem && <div style={styles.messageBox}>{mensagem}</div>}
       {erro && <div style={styles.errorBox}>{erro}</div>}
-      {resultado && <ResultadoTecnico resultado={resultado} />}
+
+      {/* FLUXO COMERCIAL UNIFICADO: O bloco de leads e resultado abrem sincronizados após o cálculo */}
+      {resultado && (
+        <>
+          <CadastroLead onSalvar={setDadosLead} dadosSalvos={dadosLead} />
+          <ResultadoTecnico resultado={resultado} />
+        </>
+      )}
     </div>
   );
 }
