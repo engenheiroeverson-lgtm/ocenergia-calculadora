@@ -24,19 +24,13 @@ function limparNumero(valor: string): string {
 
 function parseNumeroBR(valor: string | undefined): number | undefined {
   if (!valor) return undefined;
-
   const bruto = limparNumero(valor);
   if (!bruto) return undefined;
-
-  const negativo =
-    bruto.startsWith('-') || (valor.includes('(') && valor.includes(')'));
-
+  const negativo = bruto.startsWith('-') || (valor.includes('(') && valor.includes(')'));
   const semSinais = bruto.replace(/[()-]/g, '');
   const ultimaVirgula = semSinais.lastIndexOf(',');
   const ultimoPonto = semSinais.lastIndexOf('.');
-
   let normalizado = semSinais;
-
   if (ultimaVirgula > ultimoPonto) {
     normalizado = semSinais.replace(/\./g, '').replace(',', '.');
   } else if (ultimoPonto > ultimaVirgula) {
@@ -44,10 +38,8 @@ function parseNumeroBR(valor: string | undefined): number | undefined {
   } else {
     normalizado = semSinais.replace(/,/g, '');
   }
-
   const numero = Number(normalizado);
   if (!Number.isFinite(numero)) return undefined;
-
   return negativo ? -Math.abs(numero) : numero;
 }
 
@@ -59,9 +51,7 @@ function extrairPrimeiroNumero(
     const match = texto.match(regex);
     if (match?.[1]) {
       const n = parseNumeroBR(match[1]);
-      if (typeof n === 'number' && Number.isFinite(n) && n > 0) {
-        return n;
-      }
+      if (typeof n === 'number' && Number.isFinite(n) && n > 0) return n;
     }
   }
   return undefined;
@@ -71,7 +61,6 @@ function somar(...valores: Array<number | undefined>): number | undefined {
   const filtrados = valores.filter(
     (v): v is number => typeof v === 'number' && Number.isFinite(v),
   );
-
   if (!filtrados.length) return undefined;
   return filtrados.reduce((acc, atual) => acc + atual, 0);
 }
@@ -85,71 +74,25 @@ function deduzirFp(
     typeof energiaReativaKvarh !== 'number' ||
     energiaAtivaKwh <= 0 ||
     energiaReativaKvarh < 0
-  ) {
-    return undefined;
-  }
-
-  const fp =
-    energiaAtivaKwh /
-    Math.sqrt(energiaAtivaKwh ** 2 + energiaReativaKvarh ** 2);
-
+  ) return undefined;
+  const fp = energiaAtivaKwh / Math.sqrt(energiaAtivaKwh ** 2 + energiaReativaKvarh ** 2);
   return fp > 0 && fp <= 1 ? fp : undefined;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tensão por limites
+// Tensão
 // ─────────────────────────────────────────────────────────────────────────────
 
 function deduzirTensaoPelosLimites(texto: string): number | undefined {
-  if (
-    /LIM\.?\s*MIN\.?\s*:?\s*12\.?834/i.test(texto) ||
-    /12834\s*A\s*14490/i.test(texto) ||
-    /TENSAO CONTRATADA[:\s]*13800/i.test(texto) ||
-    /TENSAO NOMINAL EM VOLTS\s*DISP[:\s]*13800/i.test(texto)
-  ) return 13800;
-
-  if (
-    /LIM\.?\s*MIN\.?\s*:?\s*19\.?800/i.test(texto) ||
-    /19800\s*A\s*24200/i.test(texto)
-  ) return 22000;
-
-  if (
-    /LIM\.?\s*MIN\.?\s*:?\s*9\.?900/i.test(texto) ||
-    /9900\s*A\s*12100/i.test(texto)
-  ) return 11000;
-
-  if (
-    /LIM\.?\s*MIN\.?\s*:?\s*6\.?210/i.test(texto) ||
-    /6210\s*A\s*7590/i.test(texto)
-  ) return 6900;
-
-  if (
-    /LIM\.?\s*MIN\.?\s*:?\s*2\.?070/i.test(texto) ||
-    /2070\s*A\s*2530/i.test(texto)
-  ) return 2300;
-
-  if (
-    /LIM\.?\s*MIN\.?\s*:?\s*396/i.test(texto) ||
-    /396\s*A\s*484/i.test(texto)
-  ) return 440;
-
-  if (
-    /LIM\.?\s*MIN\.?\s*:?\s*342/i.test(texto) ||
-    /342\s*A\s*418/i.test(texto)
-  ) return 380;
-
-  if (
-    /LIM\.?\s*MIN\.?\s*:?\s*198/i.test(texto) ||
-    /198\s*A\s*242/i.test(texto)
-  ) return 220;
-
-  if (
-    /LIM\.?\s*MIN\.?\s*:?\s*117/i.test(texto) ||
-    /117\s*A\s*133/i.test(texto) ||
-    /TENSAO CONTRATADA\s*127/i.test(texto) ||
-    /TENSAO NOMINAL EM VOLTS\s*DISP[:\s]*127/i.test(texto)
-  ) return 127;
-
+  if (/12834\s*[aA]\s*14490|TENSAO CONTRATADA[:\s]*13800|TENSAO NOMINAL EM VOLTS\s*DISP[:\s]*13800/i.test(texto)) return 13800;
+  if (/19800\s*[aA]\s*24200/i.test(texto)) return 22000;
+  if (/9900\s*[aA]\s*12100/i.test(texto)) return 11000;
+  if (/6210\s*[aA]\s*7590/i.test(texto)) return 6900;
+  if (/2070\s*[aA]\s*2530/i.test(texto)) return 2300;
+  if (/396\s*[aA]\s*484/i.test(texto)) return 440;
+  if (/342\s*[aA]\s*418/i.test(texto)) return 380;
+  if (/198\s*[aA]\s*242/i.test(texto)) return 220;
+  if (/117\s*[aA]\s*133|TENSAO CONTRATADA[:\s]*127|TENSAO NOMINAL EM VOLTS\s*DISP[:\s]*127/i.test(texto)) return 127;
   return undefined;
 }
 
@@ -158,240 +101,233 @@ function extrairTensao(texto: string): number | undefined {
     /TENSAO NOMINAL EM VOLTS\s*DISP\s*:?\s*(\d[\d.,]*)/i,
     /TENSAO CONTRATADA\s*:?\s*(\d{2,6})\b/i,
   ]);
-
   return tensaoExplicita ?? deduzirTensaoPelosLimites(texto);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Consumo BT em linha de medição
+// TABELA DE MEDIÇÃO — padrão Energisa MT
+// ─────────────────────────────────────────────────────────────────────────────
+
+function extrairEnergiaTabelaMedicao(
+  texto: string,
+  tipo: 'PONTA' | 'FORA PONTA',
+  campo: 'ENERGIA ATIVA' | 'ENERGIA INJETADA' | 'ERE',
+): number | undefined {
+
+  let descricao: string;
+  if (campo === 'ENERGIA ATIVA') descricao = 'ENERGIA ATIVA EM KWH';
+  else if (campo === 'ENERGIA INJETADA') descricao = 'ENERGIA INJETADA';
+  else descricao = 'ERE';
+
+  const tipoRegex = tipo === 'FORA PONTA' ? 'FORA\\s*PONTA' : 'PONTA';
+
+  // Com código de medidor (MT/AT)
+  const r1 = new RegExp(
+    `[A-Z0-9]{5,}\\s+${tipoRegex}\\s+${descricao}\\s+(\\d+)\\s+([\\d.,]+)\\s+[\\d.,]+\\s+[\\d.,]+`,
+    'i',
+  );
+
+  // Sem código de medidor
+  const r2 = new RegExp(
+    `${tipoRegex}\\s+${descricao}\\s+(\\d+)\\s+([\\d.,]+)\\s+[\\d.,]+\\s+[\\d.,]+`,
+    'i',
+  );
+
+  for (const regex of [r1, r2]) {
+    const match = texto.match(regex);
+    if (match?.[2]) {
+      const constante = parseNumeroBR(match[1]);
+      const valorBruto = parseNumeroBR(match[2]);
+      if (
+        typeof valorBruto === 'number' &&
+        valorBruto > 0 &&
+        typeof constante === 'number' &&
+        constante >= 1
+      ) {
+        return valorBruto;
+      }
+    }
+  }
+  return undefined;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Reativa excedente (ERE) da TABELA DE MEDIÇÃO (página 2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function extrairERETabelaMedicao(
+  texto: string,
+  tipo: 'PONTA' | 'FPONTA',
+): number | undefined {
+  const tipoStr = tipo === 'FPONTA' ? 'FPONTA' : 'PONTA(?!\\s*F)';
+
+  const regexes: RegExp[] = [
+    new RegExp(`ERE\\s+${tipoStr}\\s+([\\d.,]+)`, 'i'),
+    new RegExp(`ENERGIA REATIVA EXCED(?:ENTE)?\\s+(?:EM\\s+KWH\\s+-\\s+)?${tipo === 'FPONTA' ? 'F(?:ORA)?\\s*PONTA' : 'PONTA(?!\\s*F)'}[^\\d]*?([\\d.,]{3,})`, 'i'),
+  ];
+
+  for (const regex of regexes) {
+    const matches = [...texto.matchAll(new RegExp(regex.source, 'gi'))];
+    for (const match of matches) {
+      if (match?.[1]) {
+        const n = parseNumeroBR(match[1]);
+        if (typeof n === 'number' && n > 0 && n < 999999) return n;
+      }
+    }
+  }
+  return undefined;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Consumo BT (linha de medição simples)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function extrairConsumoBT(texto: string): number | undefined {
-  const padroes = [
-    /[A-Z0-9]{3,}\s+PONTA\s+ENERGIA ATIVA EM KWH\s+\d+\s+(\d+(?:[.,]\d+)?)\s+\d+\s+\d+/i,
-    /PONTA\s+ENERGIA ATIVA EM KWH\s+\d+\s+(\d+(?:[.,]\d+)?)\s+\d+\s+\d+/i,
+  const padroes: RegExp[] = [
+    /[A-Z0-9]{5,}\s+PONTA\s+ENERGIA ATIVA EM KWH\s+(\d+)\s+(\d+(?:[.,]\d+)?)\s+\d+\s+\d+/i,
+    /PONTA\s+ENERGIA ATIVA EM KWH\s+(\d+)\s+(\d+(?:[.,]\d+)?)\s+\d+\s+\d+/i,
     /CONSUMO EM KWH\s+(\d{3,7}(?:[.,]\d{2})?)\b/i,
     /CONSUMO KWH\s+(\d{3,7}(?:[.,]\d{2})?)\b/i,
   ];
 
   for (const regex of padroes) {
     const match = texto.match(regex);
-    if (match?.[1]) {
-      const n = parseNumeroBR(match[1]);
+    if (match) {
+      const valorIdx = match.length >= 3 ? 2 : 1;
+      const n = parseNumeroBR(match[valorIdx]);
       if (typeof n === 'number' && n > 0) return n;
     }
   }
-
   return undefined;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Energia MT pela tabela de medição (página 2)
-// ─────────────────────────────────────────────────────────────────────────────
-
-function extrairEnergiaMTTabelaMedicao(
-  texto: string,
-  tipo: 'FORA PONTA' | 'PONTA',
-): number | undefined {
-  const regex = new RegExp(
-    `[A-Z0-9]{3,}\\s+${tipo}\\s+ENERGIA ATIVA EM KWH\\s+\\d+\\s+(\\d[\\d.,]+)\\s+\\d[\\d.,]+\\s+\\d[\\d.,]+`,
-    'i',
-  );
-
-  const match = texto.match(regex);
-  if (match?.[1]) {
-    const n = parseNumeroBR(match[1]);
-    if (typeof n === 'number' && n > 0) return n;
-  }
-
-  const regex2 = new RegExp(
-    `${tipo}\\s+ENERGIA ATIVA EM KWH\\s+\\d+\\s+(\\d[\\d.,]+)\\s+\\d[\\d.,]+\\s+\\d[\\d.,]+`,
-    'i',
-  );
-
-  const match2 = texto.match(regex2);
-  if (match2?.[1]) {
-    const n = parseNumeroBR(match2[1]);
-    if (typeof n === 'number' && n > 0) return n;
-  }
-
-  return undefined;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Energia reativa MT pela tabela de medição (página 2)
-// ─────────────────────────────────────────────────────────────────────────────
-
-function extrairReativaMTTabelaMedicao(
-  texto: string,
-  tipo: 'FPONTA' | 'PONTA',
-): number | undefined {
-  if (tipo === 'FPONTA') {
-    const padroes = [
-      /ERE\s+FPONTA\s+([\d.,]+)/i,
-      /ERE\s+F\s*PONTA\s+([\d.,]+)/i,
-      /ENERGIA REATIVA EXCED(?:ENTE)?\s*EM\s*KWH\s*-\s*FPONTA[\s\S]{0,200}?(\d{1,5}[.,]\d{2,3})\b/i,
-      /ENERGIA REATIVA EXCED(?:ENTE)?\s*EM\s*KWH\s*-\s*FORA\s*PONTA[\s\S]{0,200}?(\d{1,5}[.,]\d{2,3})\b/i,
-      /ENERGIA REATIVA EXCED(?:ENTE)?\s*EM\s*KWH\s*-\s*F\s*PONTA[\s\S]{0,200}?(\d{1,5}[.,]\d{2,3})\b/i,
-    ];
-
-    for (const regex of padroes) {
-      const match = texto.match(regex);
-      if (match?.[1]) {
-        const n = parseNumeroBR(match[1]);
-        if (typeof n === 'number' && n > 0) return n;
-      }
-    }
-  }
-
-  if (tipo === 'PONTA') {
-    const padroes = [
-      /ERE\s+PONTA\s+([\d.,]+)/i,
-      /ENERGIA REATIVA EXCED(?:ENTE)?\s*EM\s*KWH\s*-\s*PONTA[\s\S]{0,200}?(\d{1,5}[.,]\d{2,3})\b/i,
-    ];
-
-    for (const regex of padroes) {
-      const match = texto.match(regex);
-      if (match?.[1]) {
-        const n = parseNumeroBR(match[1]);
-        if (typeof n === 'number' && n > 0) return n;
-      }
-    }
-  }
-
-  return undefined;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Extração de valor R$ de ERE na página 1
+// Valor R$ de cobrança de reativa
 // ─────────────────────────────────────────────────────────────────────────────
 
 function extrairValorReativaRS(texto: string): number | undefined {
-  const padroes = [
-    /ENERGIA REATIVA EXCED(?:ENTE)?\s*EM\s*KWH\s*-\s*FPONTA\s+[\d.,]+\s+([\d.,]+)/i,
-    /ENERGIA REATIVA EXCED(?:ENTE)?\s*EM\s*KWH\s*-\s*FORA\s*PONTA\s+[\d.,]+\s+([\d.,]+)/i,
-    /ENERGIA REATIVA EXCED(?:ENTE)?\s*EM\s*KWH\s+[\d.,]+\s+([\d.,]+)/i,
-  ];
+  const regexFPonta = /ENERGIA REATIVA EXCED(?:ENTE)?\s+(?:EM\\s+KWH\\s+-\\s+)?F(?:ORA)?\s*PONTA[^\d\n]{0,30}([\d.,]{4,})/gi;
+  const regexPonta = /ENERGIA REATIVA EXCED(?:ENTE)?\s+(?:EM\\s+KWH\\s+-\\s+)?PONTA(?!\s*F)[^\d\n]{0,30}([\d.,]{4,})/gi;
 
-  let total = 0;
-  let encontrou = false;
+  const valores: number[] = [];
 
-  for (const regex of padroes) {
-    const matches = [...texto.matchAll(new RegExp(regex.source, 'gi'))];
+  for (const regex of [regexFPonta, regexPonta]) {
+    const matches = [...texto.matchAll(regex)];
     for (const match of matches) {
-      if (match[1]) {
+      if (match?.[1]) {
         const n = parseNumeroBR(match[1]);
-        if (typeof n === 'number' && n > 0) {
-          total += n;
-          encontrou = true;
-        }
+        if (typeof n === 'number' && n > 0 && n < 100000) valores.push(n);
       }
     }
-    if (encontrou) break;
   }
 
-  return encontrou ? total : undefined;
+  if (!valores.length) return undefined;
+  return valores.reduce((a, b) => a + b, 0);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Extração principal
+// Demandas
+// ─────────────────────────────────────────────────────────────────────────────
+
+function extrairDemandas(texto: string): {
+  demandaKw?: number;
+  demandaPontaKw?: number;
+  demandaForaPontaKw?: number;
+  demandaTusdgKw?: number;
+} {
+  const demandaForaPontaP2 = extrairPrimeiroNumero(texto, [
+    /FORA\s*PONTA\s*:\s*([\d.,]+)\s*KW/i,
+    /DEMANDA\s+(?:DE\s+)?POT[EÊ]NCIA\s+MEDIDA\s*-?\s*FORA\s*PONTA[^\d]{0,20}([\d.,]+)/i,
+    /DEMANDA\s+FORA\s*PONTA[^\d]{0,20}([\d.,]+)/i,
+  ]);
+
+  const demandaPontaP2 = extrairPrimeiroNumero(texto, [
+    /KW\s*PONTA\s*:\s*([\d.,]+)/i,
+    /DEMANDA\s+(?:PONTA|KW\s+PONTA)[^\d]{0,20}([\d.,]+)/i,
+  ]);
+
+  const demandaTusdg = extrairPrimeiroNumero(texto, [
+    /TUSDG\s*:\s*([\d.,]+)/i,
+    /DEMANDA\s+TUSDG[^\d]{0,20}([\d.,]+)/i,
+    /DEMANDA\s+(?:DE\s+)?GERA[CÇ][AÃ]O\s+TUSDG[^\d]{0,20}([\d.,]+)/i,
+  ]);
+
+  const grandezas = texto.match(
+    /GRANDEZAS\s+CONTRATADAS[\s\S]{0,200}?(\d[\d.,]+)\s*[\n\r]/i,
+  );
+  const demandaContratada = grandezas ? parseNumeroBR(grandezas[1]) : undefined;
+
+  const demandaForaPontaKw = demandaForaPontaP2;
+  const demandaPontaKw = demandaPontaP2;
+  const demandaKw =
+    demandaForaPontaKw ??
+    (typeof demandaContratada === 'number' && demandaContratada > 0
+      ? demandaContratada
+      : undefined);
+
+  return { demandaKw, demandaPontaKw, demandaForaPontaKw, demandaTusdgKw: demandaTusdg };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dias faturados
+// ─────────────────────────────────────────────────────────────────────────────
+
+function extrairDiasFaturados(texto: string): number | undefined {
+  return extrairPrimeiroNumero(texto, [
+    /DIAS\s*:\s*(\d{2,3})/i,
+    /N[UÚ]MERO\s+DE\s+DIAS\s*:?\s*(\d{2,3})/i,
+    /\bDIAS\s+FAT(?:URADOS)?\s*(\d{2,3})/i,
+  ]);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Função principal
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function extrairDadosFaturaDoTexto(
-  textoBruto: string,
+  textoOriginal: string,
 ): ResultadoExtracaoParcial {
-  const texto = normalizarTexto(textoBruto);
+  const texto = normalizarTexto(textoOriginal);
 
-  // ── Tensão ────────────────────────────────────────────────────────────────
   const tensaoV = extrairTensao(texto);
+  const ehAltaTensao = typeof tensaoV === 'number' && tensaoV >= 1000;
 
-  // ── Dias faturados ───────────────────────────────────────────────────────
-  const diasFaturados = extrairPrimeiroNumero(texto, [
-    /DIAS\s*:\s*(\d{1,3})\b/i,
-    /N[ºO]\s*DIAS\s*FAT\s*:?\s*(\d{1,3})\b/i,
-    /DIAS\s+FAT\s+(\d{1,3})\b/i,
-  ]);
+  const diasFaturados = extrairDiasFaturados(texto);
 
-  // ── Energia ativa fora ponta ─────────────────────────────────────────────
-  const energiaAtivaForaPontaKwh =
-    extrairEnergiaMTTabelaMedicao(texto, 'FORA PONTA') ??
-    extrairPrimeiroNumero(texto, [
-      /CONSUMO EM KWH\s*-\s*FORA\s*PONTA\s[\s\S]{0,300}?\b(\d{5,6}[.,]\d{2,3})\b/i,
-      /CONSUMO EM KWH\s*-\s*FPONTA\s[\s\S]{0,300}?\b(\d{5,6}[.,]\d{2,3})\b/i,
-      /CONSUMO EM KWH\s*-\s*F\s*PONTA\s[\s\S]{0,300}?\b(\d{5,6}[.,]\d{2,3})\b/i,
-    ]);
+  const { demandaKw, demandaPontaKw, demandaForaPontaKw, demandaTusdgKw } =
+    extrairDemandas(texto);
 
-  // ── Energia ativa ponta ──────────────────────────────────────────────────
-  const energiaAtivaPontaKwh =
-    extrairEnergiaMTTabelaMedicao(texto, 'PONTA') ??
-    extrairPrimeiroNumero(texto, [
-      /CONSUMO EM KWH\s*-\s*PONTA\s[\s\S]{0,300}?\b(\d{4,6}[.,]\d{2,3})\b/i,
-    ]);
+  let energiaAtivaPontaKwh: number | undefined;
+  let energiaAtivaForaPontaKwh: number | undefined;
 
-  // ── Consumo BT ───────────────────────────────────────────────────────────
-  const consumoBT =
-    energiaAtivaForaPontaKwh == null ? extrairConsumoBT(texto) : undefined;
+  if (ehAltaTensao) {
+    energiaAtivaPontaKwh = extrairEnergiaTabelaMedicao(texto, 'PONTA', 'ENERGIA ATIVA');
+    energiaAtivaForaPontaKwh = extrairEnergiaTabelaMedicao(texto, 'FORA PONTA', 'ENERGIA ATIVA');
+  }
 
-  // ── Energia reativa fora ponta ───────────────────────────────────────────
-  const energiaReativaForaPontaKvarh = extrairReativaMTTabelaMedicao(texto, 'FPONTA');
+  let energiaAtivaKwh: number | undefined;
 
-  // ── Energia reativa ponta ────────────────────────────────────────────────
-  const energiaReativaPontaKvarh = extrairReativaMTTabelaMedicao(texto, 'PONTA');
+  if (ehAltaTensao) {
+    energiaAtivaKwh = somar(energiaAtivaPontaKwh, energiaAtivaForaPontaKwh);
+  } else {
+    energiaAtivaKwh = extrairConsumoBT(texto);
+    if (!energiaAtivaKwh) {
+      energiaAtivaKwh = extrairPrimeiroNumero(texto, [
+        /CONSUMO\s+EM\s+KWH\s+([\d.,]+)/i,
+        /CONSUMO\s+KWH\s+([\d.,]+)/i,
+        /CONSUMO\s+FATURADO[^\d]{0,30}([\d.,]+)/i,
+      ]);
+    }
+  }
 
-  // ── Energia reativa única ────────────────────────────────────────────────
-  const energiaReativaUnica =
-    energiaReativaForaPontaKvarh == null && energiaReativaPontaKvarh == null
-      ? extrairPrimeiroNumero(texto, [
-          /ENERGIA REATIVA EXCED(?:ENTE)?\s*EM\s*KWH\s[\s\S]{0,400}?(\d{1,5}[.,]\d{2,3})/i,
-        ])
-      : undefined;
+  const energiaReativaPontaKvarh = extrairERETabelaMedicao(texto, 'PONTA');
+  const energiaReativaForaPontaKvarh = extrairERETabelaMedicao(texto, 'FPONTA');
+  const energiaReativaKvarh = somar(energiaReativaPontaKvarh, energiaReativaForaPontaKvarh);
 
-  // ── Valor R$ de reativa cobrada na fatura ────────────────────────────────
   const valorReativaRS = extrairValorReativaRS(texto);
 
-  // ── Demandas ─────────────────────────────────────────────────────────────
-  const demandaForaPontaKw = extrairPrimeiroNumero(texto, [
-    /FORA PONTA\s*:\s*(\d{1,4})\b/i,
-    /DEMANDA DE POTENCIA MEDIDA\s*-\s*F(?:ORA)?\s*PONTA\s[\s\S]{0,400}?(\d{1,4}(?:[.,]\d{1,3})?)\s/i,
-    /DEMANDA FORA PONTA\s*[-:]\s*KW[\s\S]{0,200}?(\d{1,4})\b/i,
-  ]);
-
-  const demandaPontaKw = extrairPrimeiroNumero(texto, [
-    /KW\s*PONTA\s*:\s*(\d{1,4})\b/i,
-    /DEMANDA PONTA\s*-\s*KW[\s\S]{0,200}?(\d{1,4})\b/i,
-    /DEMANDA DE POTENCIA NAO CONSUMIDA\s*-\s*F\s*PONTA[\s\S]{0,200}?(\d{1,4})\b/i,
-  ]);
-
-  const demandaTusdgKw = extrairPrimeiroNumero(texto, [
-    /TUSDG\s*:\s*(\d{1,4})\b/i,
-    /DEMANDA TUSDG\s*-\s*KW[\s\S]{0,200}?(\d{1,4})\b/i,
-    /KWTG\s*:\s*(\d{1,4})\b/i,
-    /DEMANDA DE GERACAO\s*TUSDG[\s\S]{0,200}?(\d{1,4})\b/i,
-  ]);
-
-  // ── Energia ativa total ──────────────────────────────────────────────────
-  const energiaAtivaTotal = somar(energiaAtivaForaPontaKwh, energiaAtivaPontaKwh);
-
-  const energiaAtivaKwh =
-    energiaAtivaTotal ??
-    consumoBT ??
-    extrairPrimeiroNumero(texto, [
-      /CONSUMO FATURADO[\s\S]{0,200}?(\d{3,7}(?:[.,]\d{2})?)\b/i,
-      /CONSUMO KWH[\s\S]{0,200}?(\d{3,7}(?:[.,]\d{2})?)\b/i,
-    ]);
-
-  // ── Energia reativa total ────────────────────────────────────────────────
-  const energiaReativaKvarh =
-    somar(energiaReativaForaPontaKvarh, energiaReativaPontaKvarh) ??
-    energiaReativaUnica;
-
-  // ── FP estimado ──────────────────────────────────────────────────────────
   const fpEstimado = deduzirFp(energiaAtivaKwh, energiaReativaKvarh);
 
-  // ── Demanda consolidada ─────────────────────────────────────────────────
-  const demandaKw = demandaForaPontaKw ?? demandaPontaKw ?? demandaTusdgKw;
-
-  // ── Potência ativa ───────────────────────────────────────────────────────
   const potenciaAtivaKw =
     demandaForaPontaKw ??
     demandaKw ??
@@ -401,7 +337,6 @@ export function extrairDadosFaturaDoTexto(
       ? energiaAtivaKwh / (diasFaturados * 24)
       : undefined);
 
-  // ── Variação de carga ────────────────────────────────────────────────────
   const variacaoCargaPct =
     typeof demandaForaPontaKw === 'number' &&
     typeof demandaPontaKw === 'number' &&
@@ -411,14 +346,12 @@ export function extrairDadosFaturaDoTexto(
         100
       : undefined;
 
-  // ── Campos faltantes ────────────────────────────────────────────────────
   const camposFaltantes: string[] = [];
   if (typeof tensaoV !== 'number') camposFaltantes.push('tensaoV');
   if (typeof potenciaAtivaKw !== 'number') camposFaltantes.push('potenciaAtivaKw');
   if (typeof fpEstimado !== 'number') camposFaltantes.push('fpAtual');
   if (typeof energiaAtivaKwh !== 'number') camposFaltantes.push('energiaAtivaKwh');
 
-  // ── Resultado ─────────────────────────────────────────────────────────────
   const dadosParciais = {
     tensaoV,
     potenciaAtivaKw,
