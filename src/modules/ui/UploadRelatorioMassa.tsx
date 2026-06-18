@@ -3,7 +3,7 @@ import { extrairDadosRelatorioMassaDoTexto } from '../parsers/parserRelatorioMas
 import { completarDadosParciais } from '../normalizador/normalizadorParcial';
 import { calcularBancoCapacitorIndustrial } from '../calculadora/calculadoraIndustrial';
 import ResultadoTecnico from './ResultadoTecnico';
-import CadastroLead from './CadastroLead'; // Formulário comercial de leads unificado
+import CadastroLead from './CadastroLead';
 import type {
   ResultadoCalculadoraIndustrial,
   ResultadoExtracaoParcial,
@@ -221,3 +221,367 @@ export default function UploadRelatorioMassa() {
             label="Potência ativa (kW)"
             name="potenciaAtivaKw"
             value={complemento.potenciaAtivaKw}
+            onChange={handleComplementoChange}
+            placeholder="Ex: 120"
+            helper="Potência média ou demanda ativa"
+          />
+          <Field
+            label="FP atual"
+            name="fpAtual"
+            value={complemento.fpAtual}
+            onChange={handleComplementoChange}
+            placeholder="Ex: 0,72"
+            helper="Valor entre 0 e 1"
+          />
+          <Field
+            label="Tensão (V)"
+            name="tensaoV"
+            value={complemento.tensaoV}
+            onChange={handleComplementoChange}
+            placeholder="Ex: 380"
+            helper="Tensão nominal da instalação"
+          />
+          <Field
+            label="FP alvo"
+            name="fpAlvo"
+            value={complemento.fpAlvo}
+            onChange={handleComplementoChange}
+            placeholder="Padrão 0,95"
+            helper="Opcional. Se vazio, usa 0,95"
+          />
+          <Field
+            label="Demanda (kW)"
+            name="demandaKw"
+            value={complemento.demandaKw}
+            onChange={handleComplementoChange}
+            placeholder="Opcional"
+            helper="Ajuda na análise"
+          />
+          <Field
+            label="Variação de carga (%)"
+            name="variacaoCargaPct"
+            value={complemento.variacaoCargaPct}
+            onChange={handleComplementoChange}
+            placeholder="Ex: 18"
+            helper="Orienta banco fixo ou automático"
+          />
+          <Field
+            label="Energia ativa (kWh)"
+            name="energiaAtivaKwh"
+            value={complemento.energiaAtivaKwh}
+            onChange={handleComplementoChange}
+            placeholder="Opcional"
+            helper="Pode ajudar na validação"
+          />
+          <Field
+            label="Energia reativa (kVArh)"
+            name="energiaReativaKvarh"
+            value={complemento.energiaReativaKvarh}
+            onChange={handleComplementoChange}
+            placeholder="Opcional"
+            helper="Útil para derivar o FP"
+          />
+        </div>
+        <div style={styles.actionsRow}>
+          <button
+            type="button"
+            onClick={calcularResultado}
+            style={styles.buttonPrimary}
+          >
+            Calcular banco ideal
+          </button>
+        </div>
+      </div>
+
+      {mensagem && <div style={styles.messageBox}>{mensagem}</div>}
+      {erro && <div style={styles.errorBox}>{erro}</div>}
+
+      {extraido && (
+        <div style={styles.section}>
+          <h3 style={styles.sectionTitle}>Resumo da extração</h3>
+          <div style={styles.previewGrid}>
+            <Preview label="Status" value={extraido.status} />
+            <Preview label="Origem" value={extraido.origemDados} />
+            <Preview
+              label="Campos faltantes"
+              value={
+                extraido.camposFaltantes.length
+                  ? extraido.camposFaltantes.join(', ')
+                  : 'Nenhum'
+              }
+            />
+          </div>
+
+          {melhorRegistro && (
+            <div style={styles.bestBox}>
+              <strong style={{ color: '#1B3A6B' }}>
+                Melhor registro identificado
+              </strong>
+              <p style={styles.bestLine}>
+                <strong>Score:</strong> {melhorRegistro.score}
+              </p>
+              <p style={styles.bestLine}>
+                <strong>Status:</strong> {melhorRegistro.status}
+              </p>
+              <p style={styles.bestLine}>
+                <strong>Campos faltantes:</strong>{' '}
+                {melhorRegistro.camposFaltantes?.length
+                  ? melhorRegistro.camposFaltantes.join(', ')
+                  : 'Nenhum'}
+              </p>
+            </div>
+          )}
+
+          {registrosOrdenados.length > 1 && (
+            <div style={styles.tabelaWrapper}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>#</th>
+                    <th style={styles.th}>Score</th>
+                    <th style={styles.th}>Status</th>
+                    <th style={styles.th}>Campos faltantes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {registrosOrdenados.map((registro: any) => (
+                    <tr key={registro.indice}>
+                      <td style={styles.td}>{registro.indice}</td>
+                      <td style={styles.td}>{registro.score}</td>
+                      <td style={styles.td}>{registro.status}</td>
+                      <td style={styles.td}>
+                        {registro.camposFaltantes?.length
+                          ? registro.camposFaltantes.join(', ')
+                          : 'Nenhum'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {resultado && (
+        <>
+          <CadastroLead />
+          <ResultadoTecnico resultado={resultado} />
+        </>
+      )}
+    </div>
+  );
+}
+
+function Field({
+  label,
+  name,
+  value,
+  onChange,
+  placeholder,
+  helper,
+}: {
+  label: string;
+  name: string;
+  value: string;
+  onChange: React.ChangeEventHandler<HTMLInputElement>;
+  placeholder?: string;
+  helper?: string;
+}) {
+  return (
+    <div style={styles.field}>
+      <label style={styles.label}>{label}</label>
+      <input
+        type="text"
+        name={name}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        style={styles.input}
+      />
+      {helper && <span style={styles.helper}>{helper}</span>}
+    </div>
+  );
+}
+
+function Preview({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={styles.previewCard}>
+      <span style={styles.previewLabel}>{label}</span>
+      <strong style={styles.previewValue}>{value}</strong>
+    </div>
+  );
+}
+
+const styles: Record<string, React.CSSProperties> = {
+  container: {
+    display: 'grid',
+    gap: 16,
+    padding: 20,
+    borderRadius: 16,
+    background: '#FFFFFF',
+    border: '1px solid #D5E8F3',
+    boxShadow: '0 8px 24px rgba(27,58,107,0.08)',
+  },
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 12,
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
+  },
+  headerLeft: { display: 'grid', gap: 8, flex: 1 },
+  kicker: {
+    margin: 0,
+    fontSize: 12,
+    fontWeight: 800,
+    letterSpacing: 1.2,
+    color: '#F39C12',
+    textTransform: 'uppercase',
+  },
+  title: { margin: '4px 0 0', fontSize: 24, fontWeight: 800, color: '#1B3A6B' },
+  subtitle: { margin: 0, color: '#475467', lineHeight: 1.5, maxWidth: 760 },
+  section: {
+    padding: 16,
+    borderRadius: 14,
+    background: '#F4F6F9',
+    border: '1px solid #D5E8F3',
+    display: 'grid',
+    gap: 12,
+  },
+  sectionTitle: { margin: 0, fontSize: 18, fontWeight: 800, color: '#1B3A6B' },
+  helpText: { margin: 0, color: '#475467', fontSize: 14 },
+  infoText: { margin: 0, color: '#2E86C1', fontWeight: 700 },
+  textarea: {
+    width: '100%',
+    minHeight: 180,
+    resize: 'vertical',
+    borderRadius: 10,
+    border: '1px solid #D5E8F3',
+    padding: 12,
+    fontFamily: 'inherit',
+    fontSize: 14,
+    background: '#FFFFFF',
+    boxSizing: 'border-box',
+  },
+  grid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+    gap: 14,
+  },
+  field: { display: 'grid', gap: 6 },
+  label: { fontSize: 14, fontWeight: 700, color: '#1B3A6B' },
+  input: {
+    width: '100%',
+    borderRadius: 10,
+    border: '1px solid #D5E8F3',
+    background: '#FFFFFF',
+    padding: '12px 14px',
+    fontSize: 15,
+    color: '#101828',
+    outline: 'none',
+    boxSizing: 'border-box',
+  },
+  helper: { fontSize: 12, color: '#475467', lineHeight: 1.4 },
+  actionsRow: { display: 'flex', gap: 12, flexWrap: 'wrap' },
+  buttonPrimary: {
+    padding: '12px 18px',
+    borderRadius: 10,
+    border: 'none',
+    background: 'linear-gradient(135deg, #1B3A6B 0%, #2E86C1 100%)',
+    color: '#FFFFFF',
+    cursor: 'pointer',
+    fontWeight: 800,
+    fontSize: 15,
+    boxShadow: '0 8px 18px rgba(27,58,107,0.18)',
+  },
+  buttonSecondary: {
+    padding: '12px 18px',
+    borderRadius: 10,
+    border: '1px solid #F39C12',
+    background: '#FFFFFF',
+    color: '#E67E22',
+    cursor: 'pointer',
+    fontWeight: 800,
+    fontSize: 15,
+  },
+  buttonGhost: {
+    padding: '12px 18px',
+    borderRadius: 10,
+    border: '1px solid #F39C12',
+    background: '#FFFFFF',
+    color: '#E67E22',
+    cursor: 'pointer',
+    fontWeight: 800,
+    fontSize: 15,
+  },
+  messageBox: {
+    padding: 14,
+    borderRadius: 12,
+    background: '#eef5ff',
+    border: '1px solid #D5E8F3',
+    color: '#1B3A6B',
+    fontWeight: 600,
+  },
+  errorBox: {
+    padding: 14,
+    borderRadius: 12,
+    background: '#fef3f2',
+    border: '1px solid #fecdca',
+    color: '#b42318',
+    fontWeight: 600,
+  },
+  previewGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+    gap: 12,
+  },
+  previewCard: {
+    padding: 14,
+    borderRadius: 12,
+    background: '#FFFFFF',
+    border: '1px solid #D5E8F3',
+    display: 'grid',
+    gap: 6,
+  },
+  previewLabel: {
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    color: '#475467',
+    fontWeight: 700,
+  },
+  previewValue: { fontSize: 15, color: '#101828', wordBreak: 'break-word' },
+  bestBox: {
+    padding: 14,
+    borderRadius: 12,
+    background: '#eef5ff',
+    border: '1px solid #D5E8F3',
+    display: 'grid',
+    gap: 6,
+  },
+  bestLine: { margin: 0, color: '#101828', lineHeight: 1.5 },
+  tabelaWrapper: {
+    overflowX: 'auto',
+    borderRadius: 12,
+    border: '1px solid #D5E8F3',
+  },
+  table: { width: '100%', borderCollapse: 'collapse', background: '#FFFFFF' },
+  th: {
+    textAlign: 'left',
+    padding: '12px 14px',
+    fontSize: 13,
+    fontWeight: 800,
+    color: '#1B3A6B',
+    background: '#F4F6F9',
+    borderBottom: '1px solid #D5E8F3',
+    whiteSpace: 'nowrap',
+  },
+  td: {
+    padding: '12px 14px',
+    fontSize: 14,
+    color: '#101828',
+    borderBottom: '1px solid #EEF2F6',
+    whiteSpace: 'nowrap',
+  },
+};
