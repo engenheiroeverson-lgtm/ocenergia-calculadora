@@ -72,26 +72,22 @@ export function completarDadosParciais(
   );
 
   // ─── Energia ativa total ─────────────────────────────────────────────────
-  // Usa diretamente ou soma ponta + fora ponta
-  const energiaAtivaKwh =
-    primeiroNumero(
-      toNumber(complemento.energiaAtivaKwh),
-      parcial.energiaAtivaKwh,
-      energiaAtivaPontaKwh !== undefined && energiaAtivaForaPontaKwh !== undefined
-        ? energiaAtivaPontaKwh + energiaAtivaForaPontaKwh
-        : undefined,
-    );
+  const energiaAtivaKwh = primeiroNumero(
+    toNumber(complemento.energiaAtivaKwh),
+    parcial.energiaAtivaKwh,
+    energiaAtivaPontaKwh !== undefined && energiaAtivaForaPontaKwh !== undefined
+      ? energiaAtivaPontaKwh + energiaAtivaForaPontaKwh
+      : undefined,
+  );
 
   // ─── Energia reativa total ───────────────────────────────────────────────
-  // Usa diretamente ou soma ponta + fora ponta
-  const energiaReativaKvarh =
-    primeiroNumero(
-      toNumber(complemento.energiaReativaKvarh),
-      parcial.energiaReativaKvarh,
-      energiaReativaPontaKvarh !== undefined && energiaReativaForaPontaKvarh !== undefined
-        ? energiaReativaPontaKvarh + energiaReativaForaPontaKvarh
-        : undefined,
-    );
+  const energiaReativaKvarh = primeiroNumero(
+    toNumber(complemento.energiaReativaKvarh),
+    parcial.energiaReativaKvarh,
+    energiaReativaPontaKvarh !== undefined && energiaReativaForaPontaKvarh !== undefined
+      ? energiaReativaPontaKvarh + energiaReativaForaPontaKvarh
+      : undefined,
+  );
 
   // ─── Demandas ────────────────────────────────────────────────────────────
   const demandaPontaKw = primeiroNumero(
@@ -118,8 +114,6 @@ export function completarDadosParciais(
   );
 
   // ─── Potência ativa ──────────────────────────────────────────────────────
-  // Prioridade: manual > extraído > demanda fora ponta > demanda >
-  //             demanda ponta > demanda TUSDG > estimativa por kWh/dias
   const potenciaAtivaKw =
     primeiroNumero(
       toNumber(complemento.potenciaAtivaKw),
@@ -141,21 +135,17 @@ export function completarDadosParciais(
     parcial.tensaoV,
   );
 
-  // Tensão final com fallback para 380 V
   const tensaoFinal = tensaoV ?? 380;
 
   // ─── Fator de Potência ───────────────────────────────────────────────────
-  // Prioridade: manual > calculado pela fatura > padrão conservador 0,80
   const fpManual = primeiroNumero(
     toNumber(complemento.fpAtual),
     parcial.fpAtual,
   );
 
   const fpCalculado = calcularFp(energiaAtivaKwh, energiaReativaKvarh);
-
   const fpAtual = fpManual ?? fpCalculado ?? 0.80;
 
-  // FP alvo — padrão ANEEL 0,92
   const fpAlvo =
     primeiroNumero(
       toNumber(complemento.fpAlvo),
@@ -176,7 +166,7 @@ export function completarDadosParciais(
         100
       : undefined);
 
-  // ─── Avisos automáticos quando valores padrão foram usados ───────────────
+  // ─── Avisos automáticos ──────────────────────────────────────────────────
   const avisosPadrao: string[] = [];
 
   if (fpManual == null && fpCalculado == null) {
@@ -199,50 +189,86 @@ export function completarDadosParciais(
 
   if (tensaoV == null) {
     avisosPadrao.push(
-      'Tensão não informada: considerada tensão típica de 380 V (mais comum no mercado brasileiro).',
+      'Tensão não informada: considerada tensão típica de 380 V.',
+    );
+  }
+
+  // ─── Alerta de cobrança de reativa excedente — regra 1% ─────────────────
+  // Se a reativa excedente for >= 1% da energia ativa, há cobrança relevante
+  if (
+    typeof energiaReativaKvarh === 'number' &&
+    energiaReativaKvarh > 0 &&
+    typeof energiaAtivaKwh === 'number' &&
+    energiaAtivaKwh > 0
+  ) {
+    const pctReativa = (energiaReativaKvarh / energiaAtivaKwh) * 100;
+    const valorRS = parcial.valorReativaRS;
+
+    if (pctReativa >= 1) {
+      const parteValor =
+        typeof valorRS === 'number' && valorRS > 0
+          ? ` (R$ ${valorRS.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} cobrados nesta fatura)`
+          : '';
+
+      avisosPadrao.push(
+        `ATENÇÃO: Esta instalação possui cobrança de Energia Reativa Excedente (ERE) na fatura` +
+        `${parteValor}. ` +
+        `Reativa excedente: ${energiaReativaKvarh.toFixed(0)} kVArh` +
+        ` (${pctReativa.toFixed(1)}% da energia ativa). ` +
+        `Recomenda-se avaliar instalação de banco de capacitores para eliminar essa cobrança mensal.`,
+      );
+    } else if (pctReativa > 0) {
+      avisosPadrao.push(
+        `Reativa excedente residual detectada (${energiaReativaKvarh.toFixed(0)} kVArh — ` +
+        `${pctReativa.toFixed(2)}% da energia ativa). Impacto financeiro baixo no momento.`,
+      );
+    }
+  } else if (
+    typeof parcial.valorReativaRS === 'number' &&
+    parcial.valorReativaRS > 0
+  ) {
+    // Há cobrança R$ mas não conseguiu calcular o percentual
+    avisosPadrao.push(
+      `ATENÇÃO: Esta fatura possui cobrança de Energia Reativa Excedente` +
+      ` (R$ ${parcial.valorReativaRS.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}).` +
+      ` Avalie a instalação de banco de capacitores.`,
+    );
+  }
+
+  // ─── FP alvo menor que atual ─────────────────────────────────────────────
+  if (fpAlvo < fpAtual) {
+    avisosPadrao.push(
+      `FP atual (${fpAtual.toFixed(3)}) já supera o FP alvo (${fpAlvo.toFixed(2)}). ` +
+      `Nenhuma correção necessária — verifique cobrança de reativa excedente na fatura.`,
     );
   }
 
   // ─── Validações de segurança ─────────────────────────────────────────────
-
-  // Potência ativa deve ser um número positivo
   if (typeof potenciaAtivaKw !== 'number' || potenciaAtivaKw <= 0) {
     throw new Error(
       'Não foi possível definir a potência ativa válida. Informe a demanda ou a potência manualmente.',
     );
   }
 
-  // Tensão deve ser positiva
   if (tensaoFinal <= 0) {
     throw new Error(
       'A tensão final da instalação deve ser um número maior que zero.',
     );
   }
 
-  // FP atual deve estar entre 0,01 e 1,00
   if (fpAtual <= 0 || fpAtual > 1) {
     throw new Error(
-      'O Fator de Potência atual deve estar entre 0,01 e 1,00. Verifique os dados informados.',
+      'O Fator de Potência atual deve estar entre 0,01 e 1,00.',
     );
   }
 
-  // FP alvo deve estar entre 0,01 e 1,00
   if (fpAlvo <= 0 || fpAlvo > 1) {
     throw new Error(
-      'O Fator de Potência alvo deve estar entre 0,01 e 1,00. Verifique os dados informados.',
-    );
-  }
-
-  // FP alvo não pode ser menor que o FP atual
-  // (se já está acima do alvo, o sistema informa — não é erro, apenas aviso)
-  if (fpAlvo < fpAtual) {
-    avisosPadrao.push(
-      `FP atual (${fpAtual.toFixed(3)}) já supera o FP alvo (${fpAlvo.toFixed(2)}). Nenhuma correção necessária — verifique cobrança de reativa excedente na fatura.`,
+      'O Fator de Potência alvo deve estar entre 0,01 e 1,00.',
     );
   }
 
   // ─── Observações finais ──────────────────────────────────────────────────
-  // Une observações do usuário + avisos automáticos
   const observacoes = [
     complemento.observacoes,
     parcial.observacoes,
