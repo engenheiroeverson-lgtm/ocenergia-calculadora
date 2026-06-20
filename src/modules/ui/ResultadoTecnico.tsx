@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { ResultadoCalculadoraIndustrial } from '../../types/types';
 import CadastroLead, { type DadosLead } from './CadastroLead';
+import { enviarLead } from '../../lib/enviarLead'; // captura de lead server-side (ponto único)
 
 const cores = {
   azulEscuro: '#1B3A6B',
@@ -43,7 +44,13 @@ export default function ResultadoTecnico({
     precisaCorrecao,
     mensagem,
     observacoesTecnicas,
+    alertaHarmonicos,
+    recomendacaoHarmonicos,
   } = resultado;
+
+  // Fallbacks de exibição enquanto o motor não preenche estes campos.
+  const tensaoTrabalhoTxt = tensaoTrabalhoCapacitor ?? '—';
+  const normaTxt = normaAplicavel ?? '—';
 
   const [lead, setLead] = useState<DadosLead | null>(null);
 
@@ -55,8 +62,11 @@ export default function ResultadoTecnico({
     } catch (_) {}
   }, []);
 
+  // Ponto ÚNICO de captura: salva localmente e dispara o lead server-side
+  // (e-mail TO/BCC + webhook). Não-bloqueante; os botões abaixo seguem iguais.
   function handleSalvarLead(dados: DadosLead) {
     setLead(dados);
+    void enviarLead(resultado, dados, { temInversores: !!alertaHarmonicos });
   }
 
   const corStatus = precisaCorrecao ? cores.vermelhoFundo : cores.verdeFundo;
@@ -85,8 +95,12 @@ Gostaria de solicitar um orçamento com base no cálculo abaixo:
 - Qc com margem: ${qcComMargemKvar.toFixed(2)} kVAr
 - Tipo de banco: ${tipoBancoRecomendado}
 - Ligação sugerida: ${tipoLigacaoSugerida}
-- Tensão de trabalho dos capacitores: ${tensaoTrabalhoCapacitor}
-- Norma técnica: ${normaAplicavel}
+- Tensão de trabalho dos capacitores: ${tensaoTrabalhoCapacitor ?? 'a definir em projeto'}
+- Norma técnica: ${normaAplicavel ?? 'a definir conforme nível de tensão'}${
+      alertaHarmonicos
+        ? '\n- ATENÇÃO: planta com inversores de frequência — requer reatores de dessintonia.'
+        : ''
+    }
 ${lead?.whatsapp ? `\nWhatsApp para contato: ${lead.whatsapp}` : ''}
 ${lead?.empresa ? `Empresa: ${lead.empresa}` : ''}
 ${lead?.cidade ? `Cidade: ${lead.cidade}` : ''}
@@ -106,7 +120,9 @@ Resumo do cálculo:
 - FP alvo: ${fpAlvo.toFixed(2)}
 - Tensão: ${tensaoV.toLocaleString('pt-BR')} V
 - Qc com margem: ${qcComMargemKvar.toFixed(2)} kVAr
-- Tipo de banco: ${tipoBancoRecomendado}`,
+- Tipo de banco: ${tipoBancoRecomendado}${
+      alertaHarmonicos ? '\n- Planta com inversores (precisa de reatores de dessintonia).' : ''
+    }`,
   );
 
   return (
@@ -134,6 +150,14 @@ Resumo do cálculo:
         </p>
       </div>
 
+      {/* ─── ALERTA CRÍTICO — HARMÔNICOS ──────────────────────────────── */}
+      {alertaHarmonicos && recomendacaoHarmonicos && (
+        <div style={styles.harmonicoBox}>
+          <h3 style={styles.harmonicoTitulo}>Alerta crítico — Harmônicos</h3>
+          <p style={styles.harmonicoTexto}>{recomendacaoHarmonicos}</p>
+        </div>
+      )}
+
       {/* Cards principais */}
       <div style={styles.grid4}>
         <Card label="FP ATUAL" value={fpAtual.toFixed(3)} destaque={!precisaCorrecao} />
@@ -153,11 +177,11 @@ Resumo do cálculo:
           <span style={styles.tensaoLabel}>
             Tensão de trabalho dos capacitores
           </span>
-          <strong style={styles.tensaoValor}>{tensaoTrabalhoCapacitor}</strong>
+          <strong style={styles.tensaoValor}>{tensaoTrabalhoTxt}</strong>
         </div>
         <div style={styles.tensaoItem}>
           <span style={styles.tensaoLabel}>Norma técnica aplicável</span>
-          <strong style={styles.tensaoValor}>{normaAplicavel}</strong>
+          <strong style={styles.tensaoValor}>{normaTxt}</strong>
         </div>
       </div>
 
@@ -199,7 +223,7 @@ Resumo do cálculo:
                     <td style={styles.td}>{etapa.kvar.toFixed(2)} kVAr</td>
                     <td style={styles.td}>{etapa.quantidade}</td>
                     <td style={styles.td}>{(etapa.kvar * etapa.quantidade).toFixed(2)} kVAr</td>
-                    <td style={styles.td}>{tensaoTrabalhoCapacitor}</td>
+                    <td style={styles.td}>{tensaoTrabalhoTxt}</td>
                     <td style={styles.td}>{tipoLigacaoSugerida}</td>
                   </tr>
                 ))}
@@ -231,7 +255,7 @@ Resumo do cálculo:
         </div>
       )}
 
-      {/* ─── CADASTRO DE LEAD ─────────────────────────────────────────── */}
+      {/* ─── CADASTRO DE LEAD (ponto único de captura) ────────────────── */}
       <CadastroLead
         onSalvar={handleSalvarLead}
         dadosSalvos={lead}
@@ -341,6 +365,9 @@ const styles: Record<string, React.CSSProperties> = {
   statusBox: { padding: 16, borderRadius: 12, display: 'grid', gap: 6 },
   statusLabel: { fontSize: 12, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase' },
   statusMsg: { margin: 0, fontSize: 15, fontWeight: 600, lineHeight: 1.5 },
+  harmonicoBox: { padding: 16, borderRadius: 12, background: '#FFF4E5', border: `2px solid ${cores.laranja}`, display: 'grid', gap: 8 },
+  harmonicoTitulo: { margin: 0, fontSize: 16, fontWeight: 800, color: cores.laranjaEscuro },
+  harmonicoTexto: { margin: 0, fontSize: 14, lineHeight: 1.6, color: '#7A4A0B' },
   grid4: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 },
   grid3: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 },
   grid2: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 },
