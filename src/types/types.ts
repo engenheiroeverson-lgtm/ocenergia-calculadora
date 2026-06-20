@@ -78,6 +78,8 @@ export interface DadosNormalizadosFP {
   demandaForaPontaKw?: number;
   demandaTusdgKw?: number;
   diasFaturados?: number;
+  // NOVO: cargas não-lineares (inversores de frequência) para diagnóstico de harmônicos
+  temInversores?: boolean;
 }
 
 export interface EtapaBanco {
@@ -108,4 +110,7 @@ export interface ResultadoCalculadoraIndustrial {
   precisaCorrecao: boolean;
   mensagem: string;
   observacoesTecnicas: string[];
+  // NOVO: diagnóstico anti-harmônicos
+  alertaHarmonicos?: boolean;
+  recomendacaoHarmonicos?: string | null;
 }
