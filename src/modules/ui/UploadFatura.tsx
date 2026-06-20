@@ -5,9 +5,10 @@ import { extrairDadosFaturaDoTexto } from '../parsers/parserFatura';
 import { completarDadosParciais } from '../normalizador/normalizadorParcial';
 import { calcularBancoCapacitorIndustrial } from '../calculadora/calculadoraIndustrial';
 import ResultadoTecnico from './ResultadoTecnico';
-import CadastroLead from './CadastroLead';
-import type { DadosLead } from './CadastroLead';
 import type { ResultadoCalculadoraIndustrial } from '../../types/types';
+
+// O cadastro de lead agora vive APENAS dentro do ResultadoTecnico (ponto único),
+// por isso este componente não renderiza mais o CadastroLead.
 
 GlobalWorkerOptions.workerSrc = pdfWorker;
 
@@ -72,7 +73,6 @@ export default function UploadFatura() {
   const [erro, setErro] = useState('');
   const [aviso, setAviso] = useState('');
   const [camposFaltantes, setCamposFaltantes] = useState<string[]>([]);
-  const [dadosLead, setDadosLead] = useState<DadosLead | null>(null);
 
   function limpar() {
     setNomeArquivo('');
@@ -83,7 +83,6 @@ export default function UploadFatura() {
     setErro('');
     setAviso('');
     setCamposFaltantes([]);
-    setDadosLead(null);
     if (inputRef.current) inputRef.current.value = '';
   }
 
@@ -470,13 +469,8 @@ export default function UploadFatura() {
         </button>
       </div>
 
-      {/* RENDERIZAÇÃO CONJUNTA COM CADASTRO DE LEAD COMPATÍVEL COM PROPS */}
-      {resultado && (
-        <>
-          <CadastroLead onSalvar={setDadosLead} dadosSalvos={dadosLead} />
-          <ResultadoTecnico resultado={resultado} />
-        </>
-      )}
+      {/* O CadastroLead está DENTRO do ResultadoTecnico (ponto único de captura) */}
+      {resultado && <ResultadoTecnico resultado={resultado} />}
     </div>
   );
 }
