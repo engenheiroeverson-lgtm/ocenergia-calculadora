@@ -4,6 +4,7 @@ import type {
   EtapaBanco,
   ResultadoCalculadoraIndustrial,
 } from '../../types/types';
+import { diagnosticarHarmonicos } from '../../core/diagnosticoHarmonicos';
 
 type OpcoesCalculo = {
   fpAlvo?: number;
@@ -12,13 +13,51 @@ type OpcoesCalculo = {
 
 function classificarNivelTensao(tensaoV: number): string {
   if (tensaoV <= 1000) return 'baixa tensão';
-  if (tensaoV <= 36200) return 'média tensão';
+  if (tensaoV <= 36200) return 'média tensão'; // 36,2 kV = teto da ABNT NBR 14039
   return 'alta tensão';
 }
 
 function sugerirLigacao(tensaoV: number): string {
   if (tensaoV <= 440) return 'Triângulo (delta)';
   return 'Estrela (Y)';
+}
+
+// Norma técnica aplicável conforme o nível de tensão.
+// BT (<=1000 V): ABNT NBR 5410 / IEC 60831 (capacitores <=1 kV).
+// MT (<=36,2 kV): ABNT NBR 14039 / IEC 60871 (capacitores >1 kV).
+function definirNorma(tensaoV: number): string {
+  if (tensaoV <= 1000) return 'ABNT NBR 5410 (BT) / IEC 60831';
+  if (tensaoV <= 36200) return 'ABNT NBR 14039 (MT) / IEC 60871';
+  return 'Alta tensão (>36,2 kV): consultar norma específica';
+}
+
+// Classes de tensão de trabalho usuais para capacitores de BT (mercado/WEG).
+const CLASSES_TENSAO_BT = [240, 250, 380, 400, 440, 480, 525, 600, 690];
+
+// O capacitor deve ser de classe ACIMA da tensão nominal: ele eleva a tensão local,
+// sofre tolerâncias e (com reator de dessintonia) recebe a sobretensão do reator em série.
+// Regra conservadora: menor classe >= 1,1 x nominal; com inversores (reator), sobe uma classe.
+// É SUGESTÃO — a classe definitiva é a do catálogo WEG do produto escolhido.
+function sugerirTensaoTrabalhoCapacitor(tensaoV: number, temInversores: boolean): string {
+  if (tensaoV > 1000) {
+    return 'Definir por unidade/arranjo do banco (projeto MT) — consultar catálogo WEG';
+  }
+
+  const alvo = tensaoV * 1.1;
+  let idx = CLASSES_TENSAO_BT.findIndex((c) => c >= alvo);
+
+  if (idx === -1) {
+    const maior = CLASSES_TENSAO_BT[CLASSES_TENSAO_BT.length - 1];
+    return `acima de ${maior} V — consultar catálogo WEG`;
+  }
+
+  // Reator de dessintonia eleva a tensão sobre o capacitor: uma classe acima.
+  if (temInversores && idx < CLASSES_TENSAO_BT.length - 1) idx += 1;
+
+  const classe = CLASSES_TENSAO_BT[idx];
+  return `${classe} V (classe sugerida${
+    temInversores ? ', com reator de dessintonia' : ''
+  } — confirmar no catálogo WEG)`;
 }
 
 function calcularQc(potenciaAtivaKw: number, fpAtual: number, fpAlvo: number): number {
@@ -243,12 +282,19 @@ export function calcularBancoCapacitorIndustrial(
 ): ResultadoCalculadoraIndustrial {
   const fpAlvo = opcoes.fpAlvo ?? dados.fpAlvo ?? 0.95;
   const margemPct = opcoes.margemSegurancaPct ?? 5;
+  const temInversores = dados.temInversores ?? false;
 
   const qcKvar = calcularQc(dados.potenciaAtivaKw, dados.fpAtual, fpAlvo);
   const qcComMargemKvar = aplicarMargem(qcKvar, margemPct);
 
   const nivelTensao = classificarNivelTensao(dados.tensaoV);
   const tipoLigacaoSugerida = sugerirLigacao(dados.tensaoV);
+  const normaAplicavel = definirNorma(dados.tensaoV);
+  const tensaoTrabalhoCapacitor = sugerirTensaoTrabalhoCapacitor(
+    dados.tensaoV,
+    temInversores,
+  );
+
   const tipoBancoRecomendado = classificarTipoBanco(
     qcComMargemKvar,
     dados.variacaoCargaPct,
@@ -266,7 +312,14 @@ export function calcularBancoCapacitorIndustrial(
     ? `Correção necessária: instalar ${qcComMargemKvar.toFixed(2)} kVAr para atingir FP ${fpAlvo}.`
     : `FP atual (${dados.fpAtual}) já atende ao alvo (${fpAlvo}). Nenhuma ação necessária.`;
 
+  // Diagnóstico anti-harmônicos: empurra a recomendação para as observações
+  // (renderizadas em lista pelo ResultadoTecnico) e também expõe os campos
+  // estruturados para o card de alerta destacado.
+  const harmonicos = diagnosticarHarmonicos(temInversores);
   const observacoesTecnicas = gerarObservacoesTecnicas(dados, qcKvar, fpAlvo);
+  if (harmonicos.alerta && harmonicos.recomendacao) {
+    observacoesTecnicas.push(harmonicos.recomendacao);
+  }
 
   return {
     potenciaAtivaKw: dados.potenciaAtivaKw,
@@ -278,9 +331,13 @@ export function calcularBancoCapacitorIndustrial(
     qcComMargemKvar,
     tipoBancoRecomendado,
     tipoLigacaoSugerida,
+    tensaoTrabalhoCapacitor,
+    normaAplicavel,
     banco,
     precisaCorrecao,
     mensagem,
     observacoesTecnicas,
+    alertaHarmonicos: harmonicos.alerta,
+    recomendacaoHarmonicos: harmonicos.recomendacao,
   };
 }
