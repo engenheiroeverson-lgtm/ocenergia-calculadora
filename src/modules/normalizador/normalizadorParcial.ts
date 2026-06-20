@@ -2,19 +2,28 @@ import type { DadosNormalizadosFP, ResultadoExtracaoParcial } from '../../types/
 
 type ComplementoManual = Partial<Omit<DadosNormalizadosFP, 'origemDados'>>;
 
+// Parser numérico robusto pt-BR / en.
+// Corrige o bug anterior em que "0.92" (ponto decimal) virava 92, pois removia
+// todos os pontos. Agora detecta qual separador é o decimal pelo último símbolo.
 function toNumber(valor: unknown): number | undefined {
   if (valor === undefined || valor === null || valor === '') return undefined;
   if (typeof valor === 'number') return Number.isFinite(valor) ? valor : undefined;
 
-  const texto = String(valor)
-    .trim()
-    .replace(/\./g, '')
-    .replace(',', '.')
-    .replace(/[^\d.-]/g, '');
+  let v = String(valor).trim().replace(/[^\d.,+-]/g, '');
+  const temVirgula = v.includes(',');
+  const temPonto = v.includes('.');
 
-  if (!texto) return undefined;
+  if (temVirgula && temPonto) {
+    // o último separador é o decimal
+    v =
+      v.lastIndexOf(',') > v.lastIndexOf('.')
+        ? v.replace(/\./g, '').replace(',', '.')
+        : v.replace(/,/g, '');
+  } else if (temVirgula) {
+    v = v.replace(',', '.');
+  }
 
-  const numero = Number(texto);
+  const numero = Number(v);
   return Number.isFinite(numero) ? numero : undefined;
 }
 
