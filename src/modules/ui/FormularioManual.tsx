@@ -2,11 +2,12 @@ import React, { useMemo, useState } from 'react';
 import { normalizarEntradaManual } from '../normalizador/normalizador';
 import { calcularBancoCapacitorIndustrial } from '../calculadora/calculadoraIndustrial';
 import ResultadoTecnico from './ResultadoTecnico';
-import CadastroLead from './CadastroLead'; // Importação do componente comercial
-import type { DadosLead } from './CadastroLead';
 import type { ResultadoCalculadoraIndustrial } from '../../types/types';
 
-// Como EntradaManual foi removido do types central, tipamos a estrutura local do FormState de forma segura
+// O cadastro de lead agora vive APENAS dentro do ResultadoTecnico (ponto único de
+// captura, compartilhado por todas as abas). Por isso este formulário não renderiza
+// mais o CadastroLead nem dispara enviarLead — evita lead duplicado.
+
 type FormState = {
   potenciaAtivaKw: string;
   fpAtual: string;
@@ -25,6 +26,7 @@ type FormState = {
   energiaReativaForaPontaKvarh: string;
   demandaPontaKw: string;
   demandaForaPontaKw: string;
+  temInversores: boolean; // cargas não-lineares (diagnóstico de harmônicos)
 };
 
 const estadoInicial: FormState = {
@@ -45,6 +47,7 @@ const estadoInicial: FormState = {
   energiaReativaForaPontaKvarh: '',
   demandaPontaKw: '',
   demandaForaPontaKw: '',
+  temInversores: false,
 };
 
 const TENSOES_BT = ['127', '220', '380', '440'];
@@ -57,12 +60,13 @@ export default function FormularioManual() {
   const [resultado, setResultado] = useState<ResultadoCalculadoraIndustrial | null>(null);
   const [erro, setErro] = useState<string>('');
   const [mensagem, setMensagem] = useState<string>('');
-  const [dadosLead, setDadosLead] = useState<DadosLead | null>(null);
 
   const camposPreenchidos = useMemo(() => {
     return Object.entries(form)
       .filter(([chave, valor]) =>
-        chave !== 'observacoes' && String(valor ?? '').trim() !== '',
+        chave !== 'observacoes' &&
+        chave !== 'temInversores' &&
+        String(valor ?? '').trim() !== '',
       )
       .map(([chave]) => chave);
   }, [form]);
@@ -81,7 +85,6 @@ export default function FormularioManual() {
     setResultado(null);
     setErro('');
     setMensagem('');
-    setDadosLead(null);
   }
 
   function calcular() {
@@ -112,7 +115,13 @@ export default function FormularioManual() {
         fpAlvo: formComDefaults.fpAlvo,
       });
 
-      const calculo = calcularBancoCapacitorIndustrial(dadosNormalizados, {
+      // Injeta o flag de cargas não-lineares para o diagnóstico de harmônicos.
+      const dadosComHarmonicos = {
+        ...dadosNormalizados,
+        temInversores: form.temInversores,
+      };
+
+      const calculo = calcularBancoCapacitorIndustrial(dadosComHarmonicos, {
         fpAlvo: dadosNormalizados.fpAlvo,
         margemSegurancaPct: 5,
       });
@@ -249,6 +258,41 @@ export default function FormularioManual() {
             placeholder="Padrão: 0,92"
             helper="Se vazio, usa 0,92 (limite mínimo ANEEL)"
           />
+        </div>
+      </div>
+
+      {/* Cargas não-lineares (diagnóstico de harmônicos) */}
+      <div style={styles.sectionBox}>
+        <div style={styles.toggleRow}>
+          <div style={{ maxWidth: 720 }}>
+            <h3 style={styles.sectionTitle}>Inversores de frequência na planta?</h3>
+            <span style={styles.helper}>
+              Cargas não-lineares (ex.: linha WEG CFW) exigem reatores de
+              dessintonia para proteger os capacitores contra ressonância
+              harmônica. Marque "Sim" para receber o alerta técnico no resultado.
+            </span>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={form.temInversores}
+            onClick={() =>
+              setForm((prev) => ({ ...prev, temInversores: !prev.temInversores }))
+            }
+            style={{
+              ...styles.toggleSwitch,
+              background: form.temInversores ? '#F39C12' : '#D5E8F3',
+            }}
+          >
+            <span
+              style={{
+                ...styles.toggleKnob,
+                transform: form.temInversores
+                  ? 'translateX(24px)'
+                  : 'translateX(2px)',
+              }}
+            />
+          </button>
         </div>
       </div>
 
@@ -396,13 +440,8 @@ export default function FormularioManual() {
       {mensagem && <div style={styles.messageBox}>{mensagem}</div>}
       {erro && <div style={styles.errorBox}>{erro}</div>}
 
-      {/* FLUXO COMERCIAL UNIFICADO: O bloco de leads e resultado abrem sincronizados após o cálculo */}
-      {resultado && (
-        <>
-          <CadastroLead onSalvar={setDadosLead} dadosSalvos={dadosLead} />
-          <ResultadoTecnico resultado={resultado} />
-        </>
-      )}
+      {/* Resultado (o CadastroLead está DENTRO do ResultadoTecnico) */}
+      {resultado && <ResultadoTecnico resultado={resultado} />}
     </div>
   );
 }
@@ -557,6 +596,34 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     fontSize: 13,
     transition: 'all 0.15s',
+  },
+  toggleRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 16,
+    flexWrap: 'wrap',
+  },
+  toggleSwitch: {
+    position: 'relative',
+    width: 50,
+    height: 28,
+    borderRadius: 999,
+    border: 'none',
+    cursor: 'pointer',
+    transition: 'background 0.15s',
+    flexShrink: 0,
+  },
+  toggleKnob: {
+    position: 'absolute',
+    top: 2,
+    left: 0,
+    width: 24,
+    height: 24,
+    borderRadius: '50%',
+    background: '#FFFFFF',
+    transition: 'transform 0.15s',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
   },
   actionsRow: { display: 'flex', gap: 12, flexWrap: 'wrap' },
   buttonPrimary: {
