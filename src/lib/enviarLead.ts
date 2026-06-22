@@ -4,128 +4,10 @@
 // Envia o lead direto para a função serverless /api/enviar-email, garantindo o
 // registro (e o BCC para engenharia) independentemente do mailto/wa.me do app.
 //
-// O motor: (1) reconstrói a fatura atual de demanda+energia dos 12 meses,
-// (2) diagnostica ultrapassagem, (3) dimensiona o BESS para peak shaving na ponta
-// + arbitragem (deslocar energia da ponta para fora-ponta), (4) recomenda a
-// topologia (crítico vs. econômico) e o hardware WEG, e (5) simula a fatura
-// otimizada, economia e payback.
-// ─────────────────────────────────────────────────────────────────────────────
+// Reusável pelos Módulos III (capacitores) e II (BESS): o `resultado` aceita null
+// (Módulo II não tem fator de potência) e o `extras.bess` carrega o relatório BESS.
 
-export type Modalidade = 'Azul' | 'Verde';
-
-// ── Parâmetros regulatórios (VALIDAR) ───────────────────────────────────────
-export const PARAMETROS_REGULATORIOS = {
-  toleranciaUltrapassagem: 0.05, 
-  multiplicadorUltrapassagem: 2, 
-};
-
-// ── Parâmetros físicos/operacionais do BESS (ajustáveis) ─────────────────────
-export const PARAMETROS_BESS = {
-  eficienciaCiclo: 0.88, 
-  horasPonta: 3, 
-  diasUteisMes: 21, 
-  profundidadeDescarga: 0.9, 
-};
-
-// ── Catálogo WEG C&I (All-in-One BSCW) — dados do material WEG fornecido ──────
-export interface ModeloBess {
-  modelo: string;
-  potenciaKw: number;
-  energiaKwh: number;
-  familia: string;
-}
-export const CATALOGO_WEG_CI: ModeloBess[] = [
-  { modelo: 'BSCW610', potenciaKw: 85, energiaKwh: 261, familia: 'All-in-One BSCW' },
-  { modelo: 'BSCW400', potenciaKw: 100, energiaKwh: 215, familia: 'All-in-One BSCW' },
-  { modelo: 'BSCW420', potenciaKw: 125, energiaKwh: 241, familia: 'All-in-One BSCW' },
-  { modelo: 'BSCW400H', potenciaKw: 125, energiaKwh: 261, familia: 'All-in-One BSCW' },
-];
-
-// ── Entradas ─────────────────────────────────────────────────────────────────
-export interface MesDemanda {
-  referencia: string; 
-  consumoPontaKwh: number;
-  consumoForaPontaKwh: number;
-  demandaMedidaPontaKw: number;
-  demandaMedidaForaPontaKw: number;
-  demandaContratadaPontaKw: number;
-  demandaContratadaForaPontaKw: number;
-}
-
-export interface Tarifas {
-  tusdDemandaPonta: number;
-  tusdDemandaForaPonta: number;
-  tePonta: number;
-  tusdEnergiaPonta: number;
-  teForaPonta: number;
-  tusdEnergiaForaPonta: number;
-}
-
-export interface EntradaModuloII {
-  modalidade: Modalidade;
-  cargaCritica: boolean; 
-  meses: MesDemanda[]; 
-  tarifas: Tarifas;
-  capexBessReais?: number; 
-  parametrosRegulatorios?: typeof PARAMETROS_REGULATORIOS;
-  parametrosBess?: typeof PARAMETROS_BESS;
-}
-
-// ── Resultados ────────────────────────────────────────────────────────────────
-export interface CustoDemandaPosto {
-  demandaFaturavelKw: number;
-  demandaUltrapassagemKw: number;
-  custoNormal: number;
-  custoUltrapassagem: number;
-  total: number;
-}
-export interface FaturaMensal {
-  referencia: string;
-  custoEnergia: number;
-  demandaPonta: CustoDemandaPosto | null; 
-  demandaForaPonta: CustoDemandaPosto;
-  totalDemanda: number;
-  totalMes: number;
-  houveUltrapassagem: boolean;
-}
-export interface DimensionamentoBess {
-  potenciaKw: number;
-  energiaKwh: number;
-  energiaUtilDiariaKwh: number;
-}
-export interface RecomendacaoTopologia {
-  tipo: 'Dupla Conversão Unidirecional' | 'Bidirecional Clássico (AC Coupling)';
-  conexao: string;
-  tempoAtuacao: string;
-  enfase: string;
-}
-export interface RecomendacaoHardware {
-  tipo: 'unidade-unica' | 'multiplas-unidades' | 'utility';
-  descricao: string;
-  modeloBase?: ModeloBess;
-  quantidade?: number;
-}
-export interface Financeiro {
-  faturaAtualAnual: number;
-  faturaOtimizadaAnual: number;
-  economiaAnual: number;
-  reducaoPercentual: number;
-  capexBessReais: number | null;
-  paybackAnos: number | null;
-  fluxoCaixa10Anos: { ano: number; fluxoAcumulado: number }[];
-}
-export interface ResultadoModuloII {
-  faturasAtuais: FaturaMensal[];
-  ultrapassagemDetectada: boolean;
-  mesesComUltrapassagem: string[];
-  dimensionamento: DimensionamentoBess;
-  demandaContratadaOtimaPonta: number;
-  demandaContratadaOtimaForaPonta: number;
-  topologia: RecomendacaoTopologia;
-  hardware: RecomendacaoHardware;
-  financeiro: Financeiro;
-  avisos: string[];
-}
+import type { ResultadoCalculadoraIndustrial } from '../types/types';
 
 // Tipagem flexível para não acoplar a campos exatos do DadosLead.
 interface LeadFlex {
@@ -162,7 +44,7 @@ export interface TarifaAneelMeta {
   origem?: string;
 }
 
-// NOVO — resumo do BESS (Módulo II) para enriquecer o e-mail de proposta.
+// Resumo do BESS (Módulo II) para enriquecer o e-mail de proposta.
 export interface ResumoBessLead {
   modalidade: string;
   cargaCritica: boolean;
@@ -170,7 +52,7 @@ export interface ResumoBessLead {
   energiaKwh: number;
   topologia: string;
   hardware: string;
-  demandaContratadaOtimaKw: number; // 🌟 Linha adicionada com sucesso aqui!
+  demandaContratadaOtimaKw: number;
   mesesUltrapassagem: number;
   faturaAtualAnual: number;
   faturaOtimizadaAnual: number;
