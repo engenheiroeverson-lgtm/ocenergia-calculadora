@@ -43,6 +43,7 @@ interface ResumoBessLead {
   energiaKwh?: number;
   topologia?: string;
   hardware?: string;
+  demandaContratadaOtimaKw?: number; // NOVO — demanda a recontratar após o BESS
   mesesUltrapassagem?: number;
   faturaAtualAnual?: number;
   faturaOtimizadaAnual?: number;
@@ -197,22 +198,32 @@ function montarResumoTexto(req: CapacitorRequest, r: CapacitorResult): string {
 function montarResumoBessTexto(req: CapacitorRequest): string {
   const lead = req.lead ?? {};
   const b = req.bess ?? {};
+  const t = req.tarifaAneel ?? {};
+
+  // Contexto regional: prioriza a tarifa ANEEL; cai para uf/estado do lead.
+  const agente = t.agente ?? '—';
+  const uf = req.uf ?? t.uf ?? lead.estado ?? '—';
+  const subgrupo = t.subgrupo ?? '—';
+  const modalidade = b.modalidade ?? t.modalidade ?? '—';
+
   const payback = b.paybackAnos != null ? `${Number(b.paybackAnos).toFixed(1)} anos` : '— (informar CAPEX)';
   const reducao = b.reducaoPercentual != null ? `${Number(b.reducaoPercentual).toFixed(1)}%` : '—';
+  const demandaOtima = b.demandaContratadaOtimaKw != null ? `${b.demandaContratadaOtimaKw} kW` : '—';
+
   const linhas = [
     'NOVO LEAD — Gestão de Demanda / BESS (Módulo II)',
     `Nome:     ${lead.nome ?? '—'}`,
     `Empresa:  ${lead.empresa ?? '—'}`,
     `E-mail:   ${lead.email ?? '—'}`,
     `Telefone: ${lead.telefone ?? '—'}`,
-    `UF:       ${req.uf ?? lead.estado ?? '—'}`,
     `Cidade:   ${lead.cidade ?? '—'}`,
     '',
     'RELATÓRIO BESS',
-    `Modalidade:        ${b.modalidade ?? '—'}${b.cargaCritica ? ' (carga crítica)' : ''}`,
+    `Distribuidora/UF:  ${agente} / ${uf} (Subgrupo ${subgrupo} - ${modalidade})`,
     `Dimensionamento:   ${b.potenciaKw ?? '—'} kW / ${b.energiaKwh ?? '—'} kWh`,
-    `Topologia:         ${b.topologia ?? '—'}`,
+    `Topologia:         ${b.topologia ?? '—'}${b.cargaCritica ? ' (carga crítica)' : ''}`,
     `Hardware WEG:      ${b.hardware ?? '—'}`,
+    `Demanda Ótima:     ${demandaOtima}`,
     `Meses c/ ultrap.:  ${b.mesesUltrapassagem ?? '—'}`,
     `Fatura atual/ano:  ${fmtBRLInt(b.faturaAtualAnual)}`,
     `Fatura otim./ano:  ${fmtBRLInt(b.faturaOtimizadaAnual)}`,
@@ -287,7 +298,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const body: CapacitorRequest = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
 
-  // Desvio de fluxo: se veio "bess", é lead do Módulo II (Demanda/BESS).
+  // Árvore de decisão: se veio "bess", é lead do Módulo II (Demanda/BESS).
   const ehBess = body.bess != null;
 
   let subject: string;
