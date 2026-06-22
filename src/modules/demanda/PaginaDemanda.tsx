@@ -133,6 +133,7 @@ export default function PaginaDemanda() {
       energiaKwh: resultado.dimensionamento.energiaKwh,
       topologia: resultado.topologia.tipo,
       hardware: resultado.hardware.descricao,
+      demandaContratadaOtimaKw: resultado.demandaContratadaOtimaForaPonta, // 🌟 Campo embutido com sucesso!
       mesesUltrapassagem: resultado.mesesComUltrapassagem.length,
       faturaAtualAnual: f.faturaAtualAnual,
       faturaOtimizadaAnual: f.faturaOtimizadaAnual,
@@ -150,8 +151,6 @@ export default function PaginaDemanda() {
     }
     setEnvio('enviando');
     setEnvioMsg('');
-    // Reusa o mesmo helper do Módulo III: resultado = null (Módulo II não tem FP),
-    // e o relatório BESS vai em extras.bess.
     const resp = await enviarLead(
       null,
       { nome: lead.nome, empresa: lead.empresa, email: lead.email, whatsapp: lead.whatsapp, cidade: lead.cidade, estado: 'MT' },
