@@ -1,8 +1,7 @@
 // src/modules/demanda/PaginaDemanda.tsx
-// MÓDULO II — Gestão de Demanda (Grupo A) + BESS WEG. App Vite/React 19, estilos inline.
-// Integra com o Módulo III: as tarifas (TUSD demanda + TE/TUSD energia ponta/fora-ponta)
-// são puxadas AO VIVO da API ANEEL (/api/aneel-tarifas via buscarTarifasAneel), com
-// fallback de edição manual. Tabela de 12 meses já nasce com mock realista de cliente MT.
+// MÓDULO II — Gestão de Demanda (Grupo A) + BESS WEG. Vite/React 19, estilos inline.
+// Integra: tarifas ao vivo da ANEEL (Módulo III) + funil de leads (enviarLead) com
+// e-mail enriquecido pelo relatório BESS (modelo WEG, topologia, economia, payback).
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -13,9 +12,24 @@ import {
   type ResultadoModuloII,
 } from '../../utils/motorDemanda';
 import { buscarTarifasAneel } from '../../lib/buscarTarifaAneel';
+import { enviarLead } from '../../lib/enviarLead';
 
-// ── Mock realista: cliente industrial típico de MT ───────────────────────────
-// DC ponta 160 kW / DC fora-ponta 200 kW; medições com algumas ultrapassagens.
+// Resumo do BESS que vai enriquecer o e-mail do lead (alinhado com enviarLead/enviar-email).
+export interface ResumoBessLead {
+  modalidade: string;
+  cargaCritica: boolean;
+  potenciaKw: number;
+  energiaKwh: number;
+  topologia: string;
+  hardware: string;
+  mesesUltrapassagem: number;
+  faturaAtualAnual: number;
+  faturaOtimizadaAnual: number;
+  economiaAnual: number;
+  reducaoPercentual: number;
+  paybackAnos: number | null;
+}
+
 const MOCK_MESES: MesDemanda[] = [
   { referencia: '01/2025', consumoPontaKwh: 8200, consumoForaPontaKwh: 58000, demandaMedidaPontaKw: 158, demandaMedidaForaPontaKw: 212, demandaContratadaPontaKw: 160, demandaContratadaForaPontaKw: 200 },
   { referencia: '02/2025', consumoPontaKwh: 7600, consumoForaPontaKwh: 54000, demandaMedidaPontaKw: 150, demandaMedidaForaPontaKw: 205, demandaContratadaPontaKw: 160, demandaContratadaForaPontaKw: 200 },
@@ -33,34 +47,27 @@ const MOCK_MESES: MesDemanda[] = [
 
 const TARIFAS_MOCK: Tarifas = {
   tusdDemandaPonta: 38, tusdDemandaForaPonta: 18,
-  tePonta: 0.45, tusdEnergiaPonta: 0.28,
-  teForaPonta: 0.28, tusdEnergiaForaPonta: 0.17,
+  tePonta: 0.45, tusdEnergiaPonta: 0.28, teForaPonta: 0.28, tusdEnergiaForaPonta: 0.17,
 };
 
-// Normaliza string (minúsculas, sem acento) para comparar postos.
 const norm = (s: unknown) =>
   String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-// Monta as 6 tarifas a partir das linhas cruas da ANEEL (energia R$/kWh + demanda kW).
 function montarTarifas(rows: any[], modalidade: Modalidade): Tarifas {
   const eFora = (r: any) => norm(r.posto).includes('fora');
   const ePonta = (r: any) => norm(r.posto).includes('ponta') && !eFora(r);
   const energiaFora = rows.find((r) => r.unidade === 'R$/kWh' && eFora(r));
   const energiaPonta = rows.find((r) => r.unidade === 'R$/kWh' && ePonta(r));
-
   let tusdDemandaPonta = 0;
   let tusdDemandaForaPonta = 0;
   if (modalidade === 'Azul') {
     tusdDemandaPonta = rows.find((r) => r.unidade === 'kW' && ePonta(r))?.vlrTusd ?? 0;
     tusdDemandaForaPonta = rows.find((r) => r.unidade === 'kW' && eFora(r))?.vlrTusd ?? 0;
   } else {
-    // Verde: demanda única (posto costuma vir "Não se aplica").
     tusdDemandaForaPonta = rows.find((r) => r.unidade === 'kW')?.vlrTusd ?? 0;
   }
-
   return {
-    tusdDemandaPonta,
-    tusdDemandaForaPonta,
+    tusdDemandaPonta, tusdDemandaForaPonta,
     tePonta: energiaPonta?.vlrTe ?? 0,
     tusdEnergiaPonta: energiaPonta?.vlrTusd ?? 0,
     teForaPonta: energiaFora?.vlrTe ?? 0,
@@ -68,9 +75,7 @@ function montarTarifas(rows: any[], modalidade: Modalidade): Tarifas {
   };
 }
 
-const fmtBRL = (n: number) =>
-  n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
-const fmtTar = (n: number) => `R$ ${n.toLocaleString('pt-BR', { minimumFractionDigits: 5, maximumFractionDigits: 5 })}`;
+const fmtBRL = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 
 export default function PaginaDemanda() {
   const [modalidade, setModalidade] = useState<Modalidade>('Verde');
@@ -79,15 +84,17 @@ export default function PaginaDemanda() {
   const [tarifas, setTarifas] = useState<Tarifas>(TARIFAS_MOCK);
   const [capexStr, setCapexStr] = useState('');
 
-  // Contexto tarifário (mesma fonte do Módulo III).
-  const [uf] = useState('MT');
   const [agente, setAgente] = useState('EMT');
   const [subgrupo, setSubgrupo] = useState('A4');
   const [distribuidoras, setDistribuidoras] = useState<string[]>(['EMT']);
   const [buscandoTarifas, setBuscandoTarifas] = useState(false);
   const [notaTarifas, setNotaTarifas] = useState('');
 
-  // Carrega a lista de distribuidoras (estático; fallback EMT enquanto o robô sincroniza).
+  // Lead
+  const [lead, setLead] = useState({ nome: '', empresa: '', email: '', telefone: '', cidade: '' });
+  const [envio, setEnvio] = useState<'idle' | 'enviando' | 'ok' | 'erro'>('idle');
+  const [envioMsg, setEnvioMsg] = useState('');
+
   useEffect(() => {
     let vivo = true;
     fetch('/grafias-aneel.json', { cache: 'no-cache' })
@@ -101,7 +108,6 @@ export default function PaginaDemanda() {
     return () => { vivo = false; };
   }, []);
 
-  // Auto-busca das tarifas ao mudar o contexto (efeito "uau" da sinergia).
   useEffect(() => {
     let vivo = true;
     setBuscandoTarifas(true);
@@ -110,12 +116,11 @@ export default function PaginaDemanda() {
       .then((rows: any[]) => {
         if (!vivo) return;
         if (!rows || rows.length === 0) {
-          setNotaTarifas('Não encontrei tarifas para este contexto — ajuste os valores manualmente abaixo.');
+          setNotaTarifas('Não encontrei tarifas para este contexto — ajuste manualmente abaixo.');
           return;
         }
-        const t = montarTarifas(rows, modalidade);
-        setTarifas(t);
-        setNotaTarifas('Tarifas preenchidas automaticamente da ANEEL (valores líquidos, sem tributos — ajuste se necessário).');
+        setTarifas(montarTarifas(rows, modalidade));
+        setNotaTarifas('Tarifas preenchidas da ANEEL (valores líquidos, sem tributos — ajuste se necessário).');
       })
       .catch(() => { if (vivo) setNotaTarifas('Falha ao consultar a ANEEL — usando valores manuais.'); })
       .finally(() => { if (vivo) setBuscandoTarifas(false); });
@@ -124,8 +129,7 @@ export default function PaginaDemanda() {
 
   function editarMes(i: number, campo: keyof MesDemanda, valor: string) {
     setMeses((prev) => prev.map((m, idx) =>
-      idx === i ? { ...m, [campo]: campo === 'referencia' ? valor : Number(valor) || 0 } : m,
-    ));
+      idx === i ? { ...m, [campo]: campo === 'referencia' ? valor : Number(valor) || 0 } : m));
   }
   function editarTarifa(campo: keyof Tarifas, valor: string) {
     setTarifas((prev) => ({ ...prev, [campo]: Number(valor.replace(',', '.')) || 0 }));
@@ -135,6 +139,47 @@ export default function PaginaDemanda() {
     const capex = capexStr.trim() ? Number(capexStr.replace(/\./g, '').replace(',', '.')) : undefined;
     return simularModuloII({ modalidade, cargaCritica, meses, tarifas, capexBessReais: capex });
   }, [modalidade, cargaCritica, meses, tarifas, capexStr]);
+
+  function montarResumoBess(): ResumoBessLead {
+    const f = resultado.financeiro;
+    return {
+      modalidade,
+      cargaCritica,
+      potenciaKw: resultado.dimensionamento.potenciaKw,
+      energiaKwh: resultado.dimensionamento.energiaKwh,
+      topologia: resultado.topologia.tipo,
+      hardware: resultado.hardware.descricao,
+      mesesUltrapassagem: resultado.mesesComUltrapassagem.length,
+      faturaAtualAnual: f.faturaAtualAnual,
+      faturaOtimizadaAnual: f.faturaOtimizadaAnual,
+      economiaAnual: f.economiaAnual,
+      reducaoPercentual: f.reducaoPercentual,
+      paybackAnos: f.paybackAnos,
+    };
+  }
+
+  async function handleEnviarLead() {
+    if (!lead.nome.trim() || !lead.email.trim() || !lead.telefone.trim()) {
+      setEnvio('erro');
+      setEnvioMsg('Preencha ao menos nome, e-mail e telefone.');
+      return;
+    }
+    setEnvio('enviando');
+    setEnvioMsg('');
+    try {
+      // Mesmo contrato do Módulo III: enviarLead(lead, extras). Confirme os campos
+      // do seu tipo Lead/ExtrasComerciais; aqui enriquecemos com o relatório BESS.
+      await enviarLead(
+        { ...lead, estado: 'MT' } as any,
+        { uf: 'MT', bess: montarResumoBess() } as any,
+      );
+      setEnvio('ok');
+      setEnvioMsg('Proposta enviada ao time comercial! Em breve entraremos em contato.');
+    } catch (e: any) {
+      setEnvio('erro');
+      setEnvioMsg(e?.message ?? 'Falha ao enviar. Tente novamente.');
+    }
+  }
 
   const azul = modalidade === 'Azul';
 
@@ -157,12 +202,8 @@ export default function PaginaDemanda() {
         <div style={s.field}>
           <label style={s.label}>A empresa possui processos contínuos que não podem parar por nem 1 segundo?</label>
           <div style={s.toggleRow}>
-            <button type="button" onClick={() => setCargaCritica(true)} style={cargaCritica ? s.toggleOn : s.toggleOff}>
-              Sim — carga crítica
-            </button>
-            <button type="button" onClick={() => setCargaCritica(false)} style={!cargaCritica ? s.toggleOn : s.toggleOff}>
-              Não — foco em economia
-            </button>
+            <button type="button" onClick={() => setCargaCritica(true)} style={cargaCritica ? s.toggleOn : s.toggleOff}>Sim — carga crítica</button>
+            <button type="button" onClick={() => setCargaCritica(false)} style={!cargaCritica ? s.toggleOn : s.toggleOff}>Não — foco em economia</button>
           </div>
         </div>
       </section>
@@ -173,12 +214,8 @@ export default function PaginaDemanda() {
           <h2 style={s.h2}>2. Histórico de 12 meses</h2>
           <label style={s.uploadBtn}>
             Importar fatura (PDF)
-            <input
-              type="file"
-              accept="application/pdf,image/*"
-              style={{ display: 'none' }}
-              onChange={() => setNotaTarifas('Leitura de fatura: conectar ao parser do UploadFatura (próximo passo de integração).')}
-            />
+            <input type="file" accept="application/pdf,image/*" style={{ display: 'none' }}
+              onChange={() => setNotaTarifas('Leitura de fatura: conectar ao parser do UploadFatura (próximo passo).')} />
           </label>
         </div>
         <div style={s.tableWrap}>
@@ -188,10 +225,10 @@ export default function PaginaDemanda() {
                 <th style={s.th}>Mês</th>
                 <th style={s.th}>Cons. Ponta (kWh)</th>
                 <th style={s.th}>Cons. Fora-P. (kWh)</th>
-                {azul && <th style={s.th}>Dem. Med. Ponta (kW)</th>}
-                {azul && <th style={s.th}>Dem. Contr. Ponta (kW)</th>}
-                <th style={s.th}>Dem. Med. {azul ? 'Fora-P.' : 'Única'} (kW)</th>
-                <th style={s.th}>Dem. Contr. {azul ? 'Fora-P.' : 'Única'} (kW)</th>
+                {azul && <th style={s.th}>Dem. Med. Ponta</th>}
+                {azul && <th style={s.th}>Dem. Contr. Ponta</th>}
+                <th style={s.th}>Dem. Med. {azul ? 'Fora-P.' : 'Única'}</th>
+                <th style={s.th}>Dem. Contr. {azul ? 'Fora-P.' : 'Única'}</th>
               </tr>
             </thead>
             <tbody>
@@ -211,7 +248,7 @@ export default function PaginaDemanda() {
         </div>
       </section>
 
-      {/* BLOCO 3 — Tarifas (sinergia com Módulo III) */}
+      {/* BLOCO 3 — Tarifas (sinergia Módulo III) */}
       <section style={s.card}>
         <h2 style={s.h2}>3. Tarifas (MT) — ANEEL automático</h2>
         <div style={s.row}>
@@ -242,32 +279,25 @@ export default function PaginaDemanda() {
       {/* BLOCO 4 — Resultados */}
       <section style={s.card}>
         <h2 style={s.h2}>4. Resultado da simulação</h2>
-
         <div style={s.cardsGrid}>
           <ResCard titulo="Diagnóstico de ultrapassagem" destaque={resultado.ultrapassagemDetectada}>
             {resultado.ultrapassagemDetectada
               ? <>Ultrapassagem em <strong>{resultado.mesesComUltrapassagem.length}</strong> meses: {resultado.mesesComUltrapassagem.join(', ')}.</>
-              : <>Nenhuma ultrapassagem detectada no histórico.</>}
+              : <>Nenhuma ultrapassagem detectada.</>}
           </ResCard>
-
           <ResCard titulo="Dimensionamento do BESS">
             Potência: <strong>{resultado.dimensionamento.potenciaKw} kW</strong><br />
             Energia: <strong>{resultado.dimensionamento.energiaKwh} kWh</strong><br />
-            <span style={s.helper}>Demanda contratada ótima: {resultado.demandaContratadaOtimaForaPonta} kW (fora-ponta)</span>
+            <span style={s.helper}>Demanda contratada ótima: {resultado.demandaContratadaOtimaForaPonta} kW</span>
           </ResCard>
-
           <ResCard titulo="Topologia recomendada (WEG)">
             <strong>{resultado.topologia.tipo}</strong><br />
             {resultado.topologia.conexao} · {resultado.topologia.tempoAtuacao}<br />
             <span style={s.helper}>{resultado.topologia.enfase}</span>
           </ResCard>
-
-          <ResCard titulo="Hardware WEG sugerido">
-            {resultado.hardware.descricao}
-          </ResCard>
+          <ResCard titulo="Hardware WEG sugerido">{resultado.hardware.descricao}</ResCard>
         </div>
 
-        {/* Financeiro */}
         <div style={s.cardsGrid}>
           <Metrica titulo="Fatura atual (ano)" valor={fmtBRL(resultado.financeiro.faturaAtualAnual)} />
           <Metrica titulo="Fatura otimizada (ano)" valor={fmtBRL(resultado.financeiro.faturaOtimizadaAnual)} />
@@ -285,41 +315,60 @@ export default function PaginaDemanda() {
             <div style={s.paybackBox}>
               {resultado.financeiro.paybackAnos != null
                 ? <strong>{resultado.financeiro.paybackAnos.toFixed(1)} anos</strong>
-                : <span style={s.helper}>Informe o CAPEX para calcular</span>}
+                : <span style={s.helper}>Informe o CAPEX</span>}
             </div>
           </div>
         </div>
 
         <GraficoFluxoCaixa dados={resultado.financeiro.fluxoCaixa10Anos} />
 
-        {/* Ganchos comerciais */}
         <div style={s.ganchos}>
           <h3 style={s.h3}>Argumentos comerciais</h3>
           <ul style={s.ul}>
             <li><strong>C&I:</strong> arbitragem de ponta, peak shaving e correção de fator de potência sem gerador a diesel.</li>
             <li><strong>Agronegócio:</strong> sistemas outdoor para pivôs de irrigação remotos e substituição de geradores a diesel.</li>
           </ul>
-          <button type="button" style={s.leadBtn} onClick={() => alert('Conectar ao fluxo CadastroLead → enviarLead (próxima etapa de integração do funil).')}>
-            Quero uma proposta detalhada
-          </button>
         </div>
-
-        {resultado.avisos.length > 0 && (
-          <div style={s.avisos}>
-            {resultado.avisos.map((a, i) => <div key={i}>⚠️ {a}</div>)}
-          </div>
-        )}
       </section>
+
+      {/* BLOCO 5 — Funil de leads */}
+      <section style={s.card}>
+        <h2 style={s.h2}>5. Receber proposta detalhada</h2>
+        <span style={s.helper}>O relatório completo (modelo WEG, topologia, economia e payback) é enviado ao time comercial junto com seus dados.</span>
+        <div style={s.row}>
+          <Campo label="Nome*" v={lead.nome} on={(x) => setLead({ ...lead, nome: x })} />
+          <Campo label="Empresa" v={lead.empresa} on={(x) => setLead({ ...lead, empresa: x })} />
+          <Campo label="E-mail*" v={lead.email} on={(x) => setLead({ ...lead, email: x })} />
+          <Campo label="Telefone*" v={lead.telefone} on={(x) => setLead({ ...lead, telefone: x })} />
+          <Campo label="Cidade" v={lead.cidade} on={(x) => setLead({ ...lead, cidade: x })} />
+        </div>
+        <button type="button" onClick={handleEnviarLead} disabled={envio === 'enviando'} style={s.leadBtn}>
+          {envio === 'enviando' ? 'Enviando…' : 'Quero uma proposta detalhada'}
+        </button>
+        {envio === 'ok' && <div style={s.statusOk}>{envioMsg}</div>}
+        {envio === 'erro' && <div style={s.statusErro}>{envioMsg}</div>}
+      </section>
+
+      {resultado.avisos.length > 0 && (
+        <div style={s.avisos}>{resultado.avisos.map((a, i) => <div key={i}>⚠️ {a}</div>)}</div>
+      )}
     </div>
   );
 }
 
-// ── Subcomponentes ────────────────────────────────────────────────────────────
 function TarifaInput({ label, v, on }: { label: string; v: number; on: (x: string) => void }) {
   return (
     <div style={s.field}>
       <label style={s.label}>{label}</label>
       <input value={String(v)} onChange={(e) => on(e.target.value)} style={s.inputNum} />
+    </div>
+  );
+}
+function Campo({ label, v, on }: { label: string; v: string; on: (x: string) => void }) {
+  return (
+    <div style={s.field}>
+      <label style={s.label}>{label}</label>
+      <input value={v} onChange={(e) => on(e.target.value)} style={s.input} />
     </div>
   );
 }
@@ -364,7 +413,6 @@ function GraficoFluxoCaixa({ dados }: { dados: { ano: number; fluxoAcumulado: nu
   );
 }
 
-// ── Estilos ─────────────────────────────────────────────────────────────────
 const s: Record<string, React.CSSProperties> = {
   page: { maxWidth: 980, margin: '0 auto', padding: 16, display: 'grid', gap: 16, color: '#101828' },
   h1: { fontSize: 22, fontWeight: 800, color: '#1B3A6B', margin: 0 },
@@ -399,7 +447,9 @@ const s: Record<string, React.CSSProperties> = {
   metricaValor: { fontSize: 18, fontWeight: 800, color: '#1B3A6B', fontVariantNumeric: 'tabular-nums' },
   paybackBox: { borderRadius: 10, border: '1px solid #D5E8F3', padding: '10px 12px', fontSize: 16, color: '#1B3A6B' },
   ganchos: { padding: 12, borderRadius: 10, background: '#F4F6F9', border: '1px solid #D5E8F3' },
-  ul: { margin: '0 0 10px', paddingLeft: 18, fontSize: 14, lineHeight: 1.5 },
+  ul: { margin: 0, paddingLeft: 18, fontSize: 14, lineHeight: 1.5 },
   leadBtn: { padding: '12px 20px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #F39C12 0%, #E67E22 100%)', color: '#FFFFFF', fontWeight: 800, fontSize: 15, cursor: 'pointer' },
+  statusOk: { padding: 12, borderRadius: 8, background: '#E8F8F0', color: '#1E7E47', fontSize: 14, fontWeight: 700 },
+  statusErro: { padding: 12, borderRadius: 8, background: '#FDEDEC', color: '#C0392B', fontSize: 14, fontWeight: 700 },
   avisos: { display: 'grid', gap: 4, fontSize: 12, color: '#B54708', background: '#FFFAEB', border: '1px solid #FEDF89', borderRadius: 8, padding: 10 },
 };
