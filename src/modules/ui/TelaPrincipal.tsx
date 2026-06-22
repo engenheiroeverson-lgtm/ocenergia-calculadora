@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import FormularioManual from './FormularioManual';
 import UploadFatura from './UploadFatura';
 import UploadRelatorioMassa from './UploadRelatorioMassa';
+import PaginaDemanda from '../demanda/PaginaDemanda';
 
-type Aba = 'manual' | 'fatura' | 'massa';
+type Aba = 'manual' | 'fatura' | 'massa' | 'demanda';
 
 export default function TelaPrincipal() {
   const [abaAtiva, setAbaAtiva] = useState<Aba>('manual');
@@ -15,7 +16,7 @@ export default function TelaPrincipal() {
           <img src="/LOGO_OCENERGIA01.png" alt="OCENERGIA SOLAR" style={styles.logo} />
           <div>
             <h1 style={styles.headerTitle}>OCENERGIA SOLAR</h1>
-            <p style={styles.headerSubtitle}>Sistema de dimensionamento de banco de capacitores</p>
+            <p style={styles.headerSubtitle}>Plataforma de Engenharia Energética</p>
           </div>
         </div>
       </header>
@@ -29,11 +30,24 @@ export default function TelaPrincipal() {
           <div style={styles.cardHeader}>
             <div style={styles.cardHeaderInfo}>
               <span style={styles.cardKicker}>Padrão técnico</span>
-              <h2 style={styles.cardTitle}>Calculadora industrial de FP</h2>
+              <h2 style={styles.cardTitle}>
+                {abaAtiva === 'demanda'
+                  ? 'Gestão de Demanda e dimensionamento BESS (Grupo A)'
+                  : 'Calculadora industrial de Fator de Potência'}
+              </h2>
             </div>
             <div style={styles.badges}>
-              <span style={styles.badge}>FP alvo: 0,95</span>
-              <span style={styles.badge}>BT / MT / AT</span>
+              {abaAtiva === 'demanda' ? (
+                <>
+                  <span style={styles.badge}>BESS WEG</span>
+                  <span style={styles.badge}>Grupo A</span>
+                </>
+              ) : (
+                <>
+                  <span style={styles.badge}>FP alvo: 0,95</span>
+                  <span style={styles.badge}>BT / MT / AT</span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -60,18 +74,26 @@ export default function TelaPrincipal() {
           >
             Relatório de massa
           </button>
+          <button
+            type="button"
+            style={{ ...styles.aba, ...(abaAtiva === 'demanda' ? styles.abaAtiva : {}) }}
+            onClick={() => setAbaAtiva('demanda')}
+          >
+            Gestão de Demanda / BESS
+          </button>
         </div>
 
         <div style={styles.conteudo}>
           {abaAtiva === 'manual' && <FormularioManual />}
           {abaAtiva === 'fatura' && <UploadFatura />}
           {abaAtiva === 'massa' && <UploadRelatorioMassa />}
+          {abaAtiva === 'demanda' && <PaginaDemanda />}
         </div>
       </main>
 
       <footer style={styles.footer}>
         <p style={styles.footerText}>
-          OCENERGIA SOLAR — Sistema técnico de dimensionamento de banco de capacitores
+          OCENERGIA SOLAR — Plataforma de Engenharia Energética (FP, Demanda e BESS)
         </p>
       </footer>
     </div>
