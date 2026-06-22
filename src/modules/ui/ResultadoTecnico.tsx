@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import type { ResultadoCalculadoraIndustrial } from '../../types/types';
 import CadastroLead, { type DadosLead } from './CadastroLead';
 import { enviarLead } from '../../lib/enviarLead'; // captura de lead server-side (ponto único)
+import SeletorTarifaAneel, { type InfoTarifaria } from './SeletorTarifaAneel';
 
 const cores = {
   azulEscuro: '#1B3A6B',
@@ -54,6 +55,10 @@ export default function ResultadoTecnico({
 
   const [lead, setLead] = useState<DadosLead | null>(null);
 
+  // NOVO — metadados da tarifa ANEEL (gross-up "por dentro"), preenchidos pelo
+  // SeletorTarifaAneel abaixo. Vão junto no lead/e-mail; null = não informado.
+  const [infoTarifaria, setInfoTarifaria] = useState<InfoTarifaria | null>(null);
+
   // Recuperar lead salvo no localStorage
   useEffect(() => {
     try {
@@ -64,9 +69,14 @@ export default function ResultadoTecnico({
 
   // Ponto ÚNICO de captura: salva localmente e dispara o lead server-side
   // (e-mail TO/BCC + webhook). Não-bloqueante; os botões abaixo seguem iguais.
+  // Agora também leva UF + tarifa ANEEL (quando o usuário tiver buscado).
   function handleSalvarLead(dados: DadosLead) {
     setLead(dados);
-    void enviarLead(resultado, dados, { temInversores: !!alertaHarmonicos });
+    void enviarLead(resultado, dados, {
+      temInversores: !!alertaHarmonicos,
+      uf: infoTarifaria?.uf,
+      tarifaAneel: infoTarifaria,
+    });
   }
 
   const corStatus = precisaCorrecao ? cores.vermelhoFundo : cores.verdeFundo;
@@ -254,6 +264,14 @@ Resumo do cálculo:
           </ul>
         </div>
       )}
+
+      {/* ─── TARIFA DA DISTRIBUIDORA (ANEEL) — enriquece o lead ────────── */}
+      {/* Opcional: busca a tarifa homologada e aplica gross-up "por dentro".  */}
+      {/* O resumo (InfoTarifaria) viaja junto no lead/e-mail ao salvar.       */}
+      <SeletorTarifaAneel
+        ufInicial="MT"
+        onChange={setInfoTarifaria}
+      />
 
       {/* ─── CADASTRO DE LEAD (ponto único de captura) ────────────────── */}
       <CadastroLead
