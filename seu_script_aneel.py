@@ -1,184 +1,181 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-seu_script_aneel.py — Descobridor de ESQUEMA + extrator de GRAFIAS da base de
-tarifas da ANEEL (Dados Abertos / CKAN).
+seu_script_aneel.py — Extrator de GRAFIAS da base de Tarifas de aplicação da
+ANEEL (Dados Abertos / CKAN), para alimentar os dropdowns do app sem chutar a
+grafia (ex.: "Fora ponta", sigla real da distribuidora de MT = "EMT", etc.).
 
-Objetivo
---------
-Travar a grafia EXATA dos valores de filtro usados pelo app (distribuidora,
-subgrupo, modalidade, posto, base tarifária e componente), para alimentar os
-dropdowns/filtros sem chutar a grafia (ex.: "Fora ponta" vs "Fora de Ponta",
-nome real da distribuidora de MT, etc.).
+VALIDADO EM PRODUÇÃO (22/06/2026):
+  - Recurso: fcf2906c-7c32-4b9b-a637-054e7a5234f4 ("Tarifas de aplicação").
+  - datastore_search_sql está FORA -> NÃO usar SELECT DISTINCT.
+  - O parâmetro `q` (full-text) não responde nesse datastore -> NÃO usar.
+  - datastore_search FUNCIONA -> varremos a tabela paginando por offset,
+    projetando só as colunas de grafia (fields) para deixar leve, e
+    acumulamos os valores DISTINTOS em memória.
 
-Filosofia (honestidade > suposição)
------------------------------------
-- NÃO assume nomes de coluna. Primeiro consulta `datastore_search` (limit=1)
-  para ler os CAMPOS REAIS do recurso e imprime esse esquema.
-- Só então extrai DISTINCT das colunas de grafia que REALMENTE existirem,
-  resolvendo entre nomes candidatos (a base "Componentes Tarifárias" usa
-  SigNomeAgente/DscSubGrupoTarifario/DscPostoTarifario; outras visões podem
-  usar nomes diferentes).
-- Avisa de forma explícita se o recurso NÃO tiver as colunas que o app espera
-  (ex.: VlrTE/VlrTUSD não existem na base de Componentes Tarifárias, que é
-  formato longo via DscComponenteTarifario/VlrComponenteTarifario).
+Filosofia (honestidade > suposição):
+  - Não assume nomes de coluna: lê os CAMPOS REAIS do recurso (1 página) e
+    resolve cada filtro lógico para o primeiro nome candidato que existir.
+  - Avisa explicitamente se alguma coluna esperada não existir no recurso.
 
-Uso
----
+Uso:
     python seu_script_aneel.py
-    ANEEL_RESOURCE_ID=<outro-id> python seu_script_aneel.py   # sobrescreve o recurso
+    ANEEL_RESOURCE_ID=<outro-id> python seu_script_aneel.py   # troca o recurso
+    GRAFIAS_OUTPUT=public/grafias-aneel.json python seu_script_aneel.py
 
-Saída: imprime no log e grava `grafias-aneel.json` no diretório atual.
+Saída: grava o JSON no caminho de GRAFIAS_OUTPUT (padrão: public/grafias-aneel.json).
 """
 import json
 import os
 import sys
 import time
+from datetime import datetime, timezone
+
 import requests
 
-ACTION_BASE = "https://dadosabertos.aneel.gov.br/api/3/action"
+SEARCH_URL = "https://dadosabertos.aneel.gov.br/api/3/action/datastore_search"
 
-# Recurso padrão = o que está no app hoje. PODE estar desatualizado ou ter
-# esquema diferente; por isso o script descobre os campos em runtime.
-# (Confirmado por leitura do CSV: o recurso de "Componentes Tarifárias" 2026 é
-#  e8717aa8-2521-453f-bf16-fbb9a16eea39 — use ANEEL_RESOURCE_ID para apontar.)
-RESOURCE_ID = os.environ.get(
-    "ANEEL_RESOURCE_ID", "fcf2906c-7c32-4b9b-a637-054e7a5234f4"
-)
+RESOURCE_ID = os.environ.get("ANEEL_RESOURCE_ID", "fcf2906c-7c32-4b9b-a637-054e7a5234f4")
+OUTPUT = os.environ.get("GRAFIAS_OUTPUT", "public/grafias-aneel.json")
+PAGE_SIZE = int(os.environ.get("ANEEL_PAGE_SIZE", "10000"))
+TIMEOUT = int(os.environ.get("ANEEL_TIMEOUT", "60"))
+MAX_RETRIES = int(os.environ.get("ANEEL_MAX_RETRIES", "3"))
 
-TIMEOUT = 60
-
-# Colunas de grafia: chave lógica -> lista de NOMES CANDIDATOS (o 1º que existir
-# no esquema real é usado). Cobrimos as variações conhecidas entre as visões.
+# Filtro lógico -> nomes de coluna CANDIDATOS (o 1º que existir é usado).
+# A grafia confirmada do recurso fcf2906c vem primeiro; mantemos alternativas
+# para o script sobreviver a uma eventual troca de recurso.
 COLUNAS_CANDIDATAS = {
-    "distribuidoras": ["SigNomeAgente", "SigAgente", "NomAgente"],
-    "subgrupos":      ["DscSubGrupoTarifario", "DscSubGrupo", "DscSubgrupo"],
+    "distribuidoras": ["SigAgente", "SigNomeAgente", "NomAgente"],
+    "subgrupos":      ["DscSubGrupo", "DscSubGrupoTarifario", "DscSubgrupo"],
     "modalidades":    ["DscModalidadeTarifaria"],
-    "postos":         ["DscPostoTarifario", "NomPostoTarifario"],
-    "base_tarifaria": ["DscBaseTarifaria"],
-    "componentes":    ["DscComponenteTarifario"],
+    "postos":         ["NomPostoTarifario", "DscPostoTarifario"],
+    "detalhes":       ["DscDetalhe"],
 }
 
-# Colunas que o app ATUAL espera mas que podem não existir neste recurso.
-COLUNAS_ESPERADAS_PELO_APP = ["VlrTE", "VlrTUSD"]
+
+def chamar(params):
+    """GET no datastore_search com retries e backoff. Levanta em caso de falha."""
+    ultimo_erro = None
+    for tentativa in range(1, MAX_RETRIES + 1):
+        try:
+            r = requests.get(
+                SEARCH_URL,
+                params=params,
+                timeout=TIMEOUT,
+                headers={"User-Agent": "ocenergia-grafias/1.0"},
+            )
+            r.raise_for_status()
+            data = r.json()
+            if not data.get("success"):
+                raise RuntimeError("CKAN respondeu success=false")
+            return data["result"]
+        except Exception as e:  # noqa: BLE001 (queremos capturar tudo p/ retry)
+            ultimo_erro = e
+            espera = 2 ** tentativa
+            print(f"  ! tentativa {tentativa}/{MAX_RETRIES} falhou ({e}); "
+                  f"aguardando {espera}s", file=sys.stderr)
+            time.sleep(espera)
+    raise RuntimeError(f"Falha após {MAX_RETRIES} tentativas: {ultimo_erro}")
 
 
-def _post_action(action: str, payload: dict) -> dict:
-    """Chama uma action do CKAN via POST JSON. Levanta RuntimeError com a
-    mensagem da API se success=false."""
-    url = f"{ACTION_BASE}/{action}"
-    r = requests.post(url, json=payload, timeout=TIMEOUT)
-    try:
-        data = r.json()
-    except ValueError:
-        raise RuntimeError(f"Resposta não-JSON (HTTP {r.status_code}) de {action}")
-    if not data.get("success"):
-        raise RuntimeError(json.dumps(data.get("error", {}), ensure_ascii=False))
-    return data["result"]
-
-
-def descobrir_campos(resource_id: str) -> list[str]:
-    """Lê os campos reais do recurso via datastore_search (limit=1)."""
-    result = _post_action("datastore_search", {"resource_id": resource_id, "limit": 1})
-    campos = [f["id"] for f in result.get("fields", []) if f.get("id") != "_id"]
+def descobrir_campos():
+    """Lê 1 página para obter os nomes REAIS das colunas do recurso."""
+    result = chamar({"resource_id": RESOURCE_ID, "limit": 1})
+    campos = [f["id"] for f in result.get("fields", [])]
+    print(f"Campos reais do recurso ({len(campos)}): {campos}")
     return campos
 
 
-def distinct_coluna(resource_id: str, coluna: str) -> list[str]:
-    """DISTINCT de uma coluna via datastore_search_sql."""
-    sql = (
-        f'SELECT DISTINCT "{coluna}" AS v FROM "{resource_id}" '
-        f'WHERE "{coluna}" IS NOT NULL ORDER BY "{coluna}"'
-    )
-    result = _post_action("datastore_search_sql", {"sql": sql})
-    vals = []
-    for rec in result.get("records", []):
-        v = rec.get("v")
-        if v is None:
-            continue
-        v = str(v).strip()
-        if v:
-            vals.append(v)
-    # dedup preservando ordem
-    seen, out = set(), []
-    for v in vals:
-        if v not in seen:
-            seen.add(v)
-            out.append(v)
-    return out
+def resolver_colunas(campos_reais):
+    """Mapeia cada filtro lógico para a 1ª coluna candidata existente."""
+    resolvido = {}
+    for chave, candidatos in COLUNAS_CANDIDATAS.items():
+        achou = next((c for c in candidatos if c in campos_reais), None)
+        if achou:
+            resolvido[chave] = achou
+        else:
+            print(f"  ! AVISO: nenhuma coluna candidata p/ '{chave}' "
+                  f"({candidatos}) existe no recurso — será ignorada.",
+                  file=sys.stderr)
+    if not resolvido:
+        raise RuntimeError("Nenhuma coluna de grafia foi encontrada no recurso.")
+    print(f"Colunas resolvidas: {resolvido}")
+    return resolvido
 
 
-def main() -> int:
-    print("=" * 70)
-    print(f"ANEEL — sincronização de grafias  |  recurso: {RESOURCE_ID}")
-    print("=" * 70)
+def varrer_distintos(colunas):
+    """Pagina a tabela inteira acumulando valores distintos por coluna."""
+    fields = sorted(set(colunas.values()))
+    distintos = {chave: set() for chave in colunas}
+    offset = 0
+    total = None
+    lidos = 0
 
-    # 1) Descobrir o esquema real (passo de honestidade — nada é assumido).
-    try:
-        campos = descobrir_campos(RESOURCE_ID)
-    except Exception as e:
-        print(f"[FATAL] Não foi possível ler o esquema do recurso: {e}", file=sys.stderr)
-        print("        Verifique o RESOURCE_ID e se o datastore está ativo.", file=sys.stderr)
-        return 1
+    while True:
+        result = chamar({
+            "resource_id": RESOURCE_ID,
+            "limit": PAGE_SIZE,
+            "offset": offset,
+            "fields": ",".join(fields),
+        })
+        if total is None:
+            total = result.get("total")
+            print(f"Total informado pela ANEEL: {total}")
 
-    print(f"\n[ESQUEMA] {len(campos)} colunas encontradas:")
-    for c in campos:
-        print(f"  - {c}")
+        recs = result.get("records", [])
+        if not recs:
+            break
 
-    # 1b) Avisar sobre colunas que o app espera e que podem não existir.
-    faltando_app = [c for c in COLUNAS_ESPERADAS_PELO_APP if c not in campos]
-    if faltando_app:
-        print(
-            "\n[ALERTA] O app espera estas colunas que NÃO existem neste recurso: "
-            + ", ".join(faltando_app)
-        )
-        if "DscComponenteTarifario" in campos:
-            print(
-                "         Este recurso é FORMATO LONGO: use DscComponenteTarifario "
-                "('TE','TUSD',...) + VlrComponenteTarifario, filtrando "
-                "DscBaseTarifaria='Tarifa de Aplicação'."
-            )
+        for r in recs:
+            for chave, coluna in colunas.items():
+                v = r.get(coluna)
+                if v is not None and str(v).strip():
+                    distintos[chave].add(str(v).strip())
 
-    # 2) Resolver e extrair grafias só das colunas que existem.
-    resultado = {
-        "_fonte": ACTION_BASE,
-        "_recurso": RESOURCE_ID,
-        "_gerado_em": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "_campos_do_recurso": campos,
-        "_colunas_resolvidas": {},
+        lidos += len(recs)
+        # Avança pelo número REAL de registros recebidos (robusto a um eventual
+        # teto de página menor que o solicitado pelo servidor).
+        offset += len(recs)
+        print(f"  offset {offset:>8} | acumulado {lidos}")
+
+        if total is not None and offset >= total:
+            break
+        if offset > 5_000_000:  # trava de segurança
+            print("  ! limite de segurança atingido — interrompendo varredura.",
+                  file=sys.stderr)
+            break
+
+    return distintos, lidos, total
+
+
+def main():
+    print(f"Recurso: {RESOURCE_ID}")
+    print(f"Página: {PAGE_SIZE} | timeout: {TIMEOUT}s | saída: {OUTPUT}")
+
+    campos = descobrir_campos()
+    colunas = resolver_colunas(campos)
+    distintos, lidos, total = varrer_distintos(colunas)
+
+    saida = {
+        "geradoEm": datetime.now(timezone.utc).isoformat(),
+        "resourceId": RESOURCE_ID,
+        "registrosLidos": lidos,
+        "totalInformadoAneel": total,
+        "colunasUsadas": colunas,
     }
-    erros = {}
+    for chave in colunas:
+        valores = sorted(distintos[chave])
+        saida[chave] = valores
+        print(f"{chave}: {len(valores)} distintos")
 
-    for chave, candidatas in COLUNAS_CANDIDATAS.items():
-        coluna = next((c for c in candidatas if c in campos), None)
-        if coluna is None:
-            print(f"\n[SKIP] {chave}: nenhuma coluna candidata existe "
-                  f"({', '.join(candidatas)})")
-            continue
-        resultado["_colunas_resolvidas"][chave] = coluna
-        try:
-            vals = distinct_coluna(RESOURCE_ID, coluna)
-            resultado[chave] = vals
-            print(f"\n[OK] {chave}  ->  coluna \"{coluna}\"  ({len(vals)} valores)")
-            for v in vals[:40]:
-                print(f"     - {v}")
-            if len(vals) > 40:
-                print(f"     ... (+{len(vals) - 40})")
-        except Exception as e:
-            erros[chave] = str(e)
-            print(f"\n[ERRO] {chave} (coluna {coluna}): {e}", file=sys.stderr)
+    destino_dir = os.path.dirname(OUTPUT)
+    if destino_dir:
+        os.makedirs(destino_dir, exist_ok=True)
+    with open(OUTPUT, "w", encoding="utf-8") as f:
+        json.dump(saida, f, ensure_ascii=False, indent=2)
 
-    if erros:
-        resultado["_erros"] = erros
-
-    with open("grafias-aneel.json", "w", encoding="utf-8") as f:
-        json.dump(resultado, f, ensure_ascii=False, indent=2)
-    print("\nArquivo gravado: grafias-aneel.json")
-
-    # Falha o job só se NADA de grafia saiu (sinaliza vermelho no Actions).
-    extraiu_algo = any(k in resultado for k in COLUNAS_CANDIDATAS)
-    return 0 if extraiu_algo else 1
+    print(f"OK -> {OUTPUT}")
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
