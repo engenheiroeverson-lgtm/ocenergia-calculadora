@@ -2,8 +2,10 @@
 //
 // Bloco reutilizável (usado por FormularioManual e UploadFatura):
 //   - Select de UF (dirige o ICMS de fallback do taxes.ts)
-//   - Filtros de distribuidora / subgrupo / modalidade / posto
-//   - Busca a tarifa homologada na ANEEL via /api/aneel-tarifas (datastore SQL)
+//   - Dropdown de distribuidora (carregado do /grafias-aneel.json estático,
+//     gerado pelo job semanal do GitHub Actions — sem rota dinâmica ?listar=)
+//   - Filtros de subgrupo / modalidade / posto
+//   - Busca a tarifa homologada na ANEEL via /api/aneel-tarifas
 //   - Aplica o gross-up "por dentro" sequencial do taxes.ts (alíquotas dinâmicas)
 //   - Emite um resumo (InfoTarifaria) para o componente pai injetar no lead
 //
@@ -11,13 +13,13 @@
 // Por isso são campos editáveis; sem eles, o "valor com imposto" não sai correto
 // (o líquido da ANEEL continua válido). O ICMS já vem pré-preenchido do fallback
 // da UF (apenas MT confirmado contra fatura real), mas é editável.
+//
+// Sobre a distribuidora: na base da ANEEL a Energisa Mato Grosso é a sigla "EMT".
+// O VALOR enviado à busca é a sigla (substring-match no backend); o RÓTULO exibido
+// é amigável. Por isso o default é EMT (= Energisa Mato Grosso).
 
 import React, { useEffect, useState } from 'react';
-import {
-  buscarTarifasAneel,
-  listarValoresAneel,
-  type TarifaAneel,
-} from '../../lib/buscarTarifaAneel';
+import { buscarTarifasAneel, type TarifaAneel } from '../../lib/buscarTarifaAneel';
 import { calcularTarifaPorDentro, icmsFallbackPorUf } from '../../core/regulations/taxes';
 
 export interface InfoTarifaria {
@@ -45,6 +47,18 @@ const SUBGRUPOS = ['A1', 'A2', 'A3', 'A3a', 'A4', 'AS', 'B1', 'B2', 'B3', 'B4'];
 const MODALIDADES = ['Verde', 'Azul', 'Convencional', 'Branca'];
 const POSTOS = ['', 'Ponta', 'Fora ponta'];
 
+// Default = Energisa Mato Grosso. A grafia real na ANEEL é a SIGLA "EMT".
+const AGENTE_PADRAO = 'EMT';
+
+// Rótulos amigáveis para siglas conhecidas (apenas as confirmadas; as demais
+// aparecem com a própria sigla — não inventamos nomes).
+const ROTULOS_AGENTE: Record<string, string> = {
+  EMT: 'Energisa Mato Grosso (EMT)',
+};
+function rotuloAgente(sigla: string): string {
+  return ROTULOS_AGENTE[sigla] ?? sigla;
+}
+
 function pctParaFracao(s: string): number {
   if (!s?.trim()) return 0;
   const n = Number(s.replace(',', '.'));
@@ -59,20 +73,53 @@ export default function SeletorTarifaAneel({
   onChange?: (info: InfoTarifaria | null) => void;
 }) {
   const [uf, setUf] = useState(ufInicial);
-  const [agente, setAgente] = useState('');
+  const [agente, setAgente] = useState(AGENTE_PADRAO);
   const [subgrupo, setSubgrupo] = useState('A4');
   const [modalidade, setModalidade] = useState('Verde');
   const [posto, setPosto] = useState('Fora ponta');
 
   // ICMS pré-preenchido do fallback da UF; PIS/COFINS efetivos vêm da fatura.
-  const [icmsPctStr, setIcmsPctStr] = useState(String((icmsFallbackPorUf(ufInicial) * 100).toFixed(2)).replace('.', ','));
+  const [icmsPctStr, setIcmsPctStr] = useState(
+    String((icmsFallbackPorUf(ufInicial) * 100).toFixed(2)).replace('.', ','),
+  );
   const [pisPctStr, setPisPctStr] = useState('');
   const [cofinsPctStr, setCofinsPctStr] = useState('');
 
   const [selecionada, setSelecionada] = useState<TarifaAneel | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState('');
-  const [agentesLista, setAgentesLista] = useState<string[]>([]);
+
+  // Lista de distribuidoras lida do arquivo estático gerado pelo robô semanal.
+  // Começa com o default garantido (EMT) para nunca quebrar a pré-seleção.
+  const [distribuidoras, setDistribuidoras] = useState<string[]>([AGENTE_PADRAO]);
+  const [grafiasNota, setGrafiasNota] = useState('');
+
+  // Carrega /grafias-aneel.json UMA vez ao montar a tela (sem rota ?listar=).
+  useEffect(() => {
+    let vivo = true;
+    fetch('/grafias-aneel.json', { cache: 'no-cache' })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((j) => {
+        if (!vivo) return;
+        const lista: string[] = Array.isArray(j?.distribuidoras) ? j.distribuidoras : [];
+        // Garante o default EMT mesmo se o arquivo ainda estiver incompleto.
+        const merged = Array.from(new Set([AGENTE_PADRAO, ...lista])).sort((a, b) =>
+          a.localeCompare(b, 'pt-BR'),
+        );
+        setDistribuidoras(merged);
+      })
+      .catch(() => {
+        if (!vivo) return;
+        setGrafiasNota('Lista de distribuidoras ainda sincronizando — usando o padrão (EMT).');
+        setDistribuidoras([AGENTE_PADRAO]);
+      });
+    return () => {
+      vivo = false;
+    };
+  }, []);
 
   // Ao trocar a UF, reaplica o ICMS de fallback dela.
   useEffect(() => {
@@ -86,7 +133,7 @@ export default function SeletorTarifaAneel({
     try {
       const res = await buscarTarifasAneel({ agente, subgrupo, modalidade, posto });
       if (res.length === 0) {
-        setErro('Nenhuma tarifa encontrada. Confira a grafia (use "Listar distribuidoras").');
+        setErro('Nenhuma tarifa encontrada para esta combinação. Confira distribuidora/subgrupo/modalidade/posto.');
       } else {
         setSelecionada(res[0]); // a API já ordena por vigência mais recente
       }
@@ -94,15 +141,6 @@ export default function SeletorTarifaAneel({
       setErro(e?.message ?? 'Falha ao consultar a ANEEL.');
     } finally {
       setCarregando(false);
-    }
-  }
-
-  async function carregarDistribuidoras() {
-    try {
-      const lista = await listarValoresAneel('agentes');
-      setAgentesLista(lista);
-    } catch {
-      setErro('Não foi possível listar as distribuidoras agora.');
     }
   }
 
@@ -171,20 +209,13 @@ export default function SeletorTarifaAneel({
         </div>
 
         <div style={styles.field}>
-          <label style={styles.label}>Distribuidora (sigla/nome)</label>
-          <input
-            list="aneel-agentes"
-            value={agente}
-            onChange={(e) => setAgente(e.target.value)}
-            placeholder="Ex: Energisa MT"
-            style={styles.input}
-          />
-          <datalist id="aneel-agentes">
-            {agentesLista.map((a) => <option key={a} value={a} />)}
-          </datalist>
-          <button type="button" onClick={carregarDistribuidoras} style={styles.linkBtn}>
-            Listar distribuidoras
-          </button>
+          <label style={styles.label}>Distribuidora</label>
+          <select value={agente} onChange={(e) => setAgente(e.target.value)} style={styles.input}>
+            {distribuidoras.map((a) => (
+              <option key={a} value={a}>{rotuloAgente(a)}</option>
+            ))}
+          </select>
+          {grafiasNota && <span style={styles.helper}>{grafiasNota}</span>}
         </div>
 
         <div style={styles.field}>
@@ -236,7 +267,9 @@ export default function SeletorTarifaAneel({
       {selecionada && (
         <div style={styles.resultado}>
           <div style={styles.resLinha}>
-            <span style={styles.resLabel}>{selecionada.agente} · {selecionada.subgrupo} · {selecionada.modalidade} · {selecionada.posto}</span>
+            <span style={styles.resLabel}>
+              {selecionada.agente} · {selecionada.subgrupo} · {selecionada.modalidade} · {selecionada.posto}
+            </span>
             {selecionada.inicioVigencia && (
               <span style={styles.resVig}>vigência desde {selecionada.inicioVigencia}</span>
             )}
@@ -281,7 +314,6 @@ const styles: Record<string, React.CSSProperties> = {
   label: { fontSize: 14, fontWeight: 700, color: '#1B3A6B' },
   input: { width: '100%', borderRadius: 10, border: '1px solid #D5E8F3', background: '#FFFFFF', padding: '12px 14px', fontSize: 15, color: '#101828', outline: 'none', boxSizing: 'border-box' },
   inputNum: { width: '100%', borderRadius: 10, border: '1px solid #D5E8F3', background: '#FFFFFF', padding: '12px 14px', fontSize: 15, color: '#101828', outline: 'none', boxSizing: 'border-box', fontVariantNumeric: 'tabular-nums' },
-  linkBtn: { justifySelf: 'start', padding: 0, border: 'none', background: 'transparent', color: '#2E86C1', fontWeight: 700, fontSize: 12, cursor: 'pointer', textDecoration: 'underline' },
   buscarBtn: { padding: '12px 20px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #1B3A6B 0%, #2E86C1 100%)', color: '#FFFFFF', fontWeight: 800, fontSize: 15, cursor: 'pointer' },
   erro: { padding: 12, borderRadius: 8, background: '#FDEDEC', color: '#C0392B', fontSize: 14, fontWeight: 700 },
   resultado: { padding: 14, borderRadius: 10, background: '#FFFFFF', border: '1px solid #D5E8F3', display: 'grid', gap: 10 },
