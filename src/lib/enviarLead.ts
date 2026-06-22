@@ -1,17 +1,14 @@
 // src/lib/enviarLead.ts
 //
 // Helper de cliente para CAPTURA DE LEAD SERVER-SIDE confiável.
-// Hoje o lead só sai se o usuário concluir o mailto/wa.me no app dele.
-// Esta função envia o lead direto para a função serverless /api/enviar-email,
-// garantindo o registro (e o BCC para engenharia) independentemente disso.
+// Envia o lead direto para a função serverless /api/enviar-email, garantindo o
+// registro (e o BCC para engenharia) independentemente do mailto/wa.me do app.
 //
-// Use em conjunto com o mailto/wa.me já existentes — não precisa remover nada:
-// dispare este enviarLead() ao calcular/cadastrar, e mantenha os botões atuais.
-//
-// NOVO: o extras agora carrega `uf` e `tarifaAneel` (metadados da tarifa ANEEL
-// com gross-up "por dentro"). São opcionais — quem não passa nada continua
-// funcionando igual. O backend (/api/enviar-email) só monta o bloco "TARIFA
-// ANEEL" quando `tarifaAneel` chega preenchido.
+// NOVO (Módulo II): o `extras` agora também carrega `bess` (resumo do
+// dimensionamento/financeiro do BESS). E o `resultado` passou a aceitar `null`,
+// para o Módulo II (que não tem cálculo de fator de potência) reusar este mesmo
+// helper sem fabricar um resultado industrial falso. Tudo opcional/retrocompatível:
+// o Módulo III continua chamando enviarLead(resultado, lead, extras) como antes.
 import type { ResultadoCalculadoraIndustrial } from '../types/types';
 
 // Tipagem flexível para não acoplar a campos exatos do DadosLead.
@@ -25,7 +22,6 @@ interface LeadFlex {
 }
 
 export type DispatchStatus = 'sent' | 'skipped' | 'error';
-
 export interface EnvioLeadResposta {
   ok: boolean;
   dispatch?: { email: DispatchStatus; whatsapp: DispatchStatus };
@@ -33,8 +29,6 @@ export interface EnvioLeadResposta {
 }
 
 // Espelha o TarifaAneelMeta esperado por /api/enviar-email.
-// Todos os campos são opcionais/anuláveis de propósito, para aceitar o
-// InfoTarifaria emitido pelo SeletorTarifaAneel sem acoplar os tipos.
 export interface TarifaAneelMeta {
   uf?: string;
   agente?: string;
@@ -52,17 +46,35 @@ export interface TarifaAneelMeta {
   origem?: string;
 }
 
+// NOVO — resumo do BESS (Módulo II) para enriquecer o e-mail de proposta.
+export interface ResumoBessLead {
+  modalidade: string;
+  cargaCritica: boolean;
+  potenciaKw: number;
+  energiaKwh: number;
+  topologia: string;
+  hardware: string;
+  mesesUltrapassagem: number;
+  faturaAtualAnual: number;
+  faturaOtimizadaAnual: number;
+  economiaAnual: number;
+  reducaoPercentual: number;
+  paybackAnos: number | null;
+}
+
 interface ExtrasComerciais {
   multaMensalReais?: number;
   temInversores?: boolean;
   investimentoReais?: number | null;
-  // NOVO — metadados tarifários (opcionais).
+  // Metadados tarifários (opcionais).
   uf?: string;
   tarifaAneel?: TarifaAneelMeta | null;
+  // NOVO — resumo do BESS (opcional, usado pelo Módulo II).
+  bess?: ResumoBessLead | null;
 }
 
 export async function enviarLead(
-  resultado: ResultadoCalculadoraIndustrial,
+  resultado: ResultadoCalculadoraIndustrial | null,
   lead: LeadFlex | null,
   extras: ExtrasComerciais = {},
 ): Promise<EnvioLeadResposta> {
@@ -71,15 +83,22 @@ export async function enviarLead(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        potenciaAtivaKW: resultado.potenciaAtivaKw,
-        fpAtual: resultado.fpAtual,
-        fpAlvo: resultado.fpAlvo,
+        // Campos do Módulo III só vão quando há resultado industrial.
+        ...(resultado
+          ? {
+              potenciaAtivaKW: resultado.potenciaAtivaKw,
+              fpAtual: resultado.fpAtual,
+              fpAlvo: resultado.fpAlvo,
+            }
+          : {}),
         multaMensalReais: extras.multaMensalReais ?? 0,
         temInversores: extras.temInversores ?? false,
         investimentoReais: extras.investimentoReais ?? null,
         // UF: usa a do seletor de tarifa; se não houver, cai no estado do lead.
         uf: extras.uf ?? lead?.estado ?? undefined,
         tarifaAneel: extras.tarifaAneel ?? null,
+        // NOVO — resumo do BESS (Módulo II).
+        bess: extras.bess ?? null,
         lead: lead
           ? {
               nome: lead.nome,
