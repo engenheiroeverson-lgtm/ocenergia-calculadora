@@ -1,7 +1,7 @@
 // src/modules/demanda/PaginaDemanda.tsx
 // MÓDULO II — Gestão de Demanda (Grupo A) + BESS WEG. Vite/React 19, estilos inline.
-// Integra: tarifas ao vivo da ANEEL (Módulo III) + funil de leads (enviarLead) com
-// e-mail enriquecido pelo relatório BESS (modelo WEG, topologia, economia, payback).
+// Tarifas ao vivo da ANEEL (Módulo III) + funil de leads (enviarLead) com e-mail
+// enriquecido pelo relatório BESS. Tabela de 12 meses com mock realista de cliente MT.
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -12,23 +12,7 @@ import {
   type ResultadoModuloII,
 } from '../../utils/motorDemanda';
 import { buscarTarifasAneel } from '../../lib/buscarTarifaAneel';
-import { enviarLead } from '../../lib/enviarLead';
-
-// Resumo do BESS que vai enriquecer o e-mail do lead (alinhado com enviarLead/enviar-email).
-export interface ResumoBessLead {
-  modalidade: string;
-  cargaCritica: boolean;
-  potenciaKw: number;
-  energiaKwh: number;
-  topologia: string;
-  hardware: string;
-  mesesUltrapassagem: number;
-  faturaAtualAnual: number;
-  faturaOtimizadaAnual: number;
-  economiaAnual: number;
-  reducaoPercentual: number;
-  paybackAnos: number | null;
-}
+import { enviarLead, type ResumoBessLead } from '../../lib/enviarLead';
 
 const MOCK_MESES: MesDemanda[] = [
   { referencia: '01/2025', consumoPontaKwh: 8200, consumoForaPontaKwh: 58000, demandaMedidaPontaKw: 158, demandaMedidaForaPontaKw: 212, demandaContratadaPontaKw: 160, demandaContratadaForaPontaKw: 200 },
@@ -50,8 +34,8 @@ const TARIFAS_MOCK: Tarifas = {
   tePonta: 0.45, tusdEnergiaPonta: 0.28, teForaPonta: 0.28, tusdEnergiaForaPonta: 0.17,
 };
 
-const norm = (s: unknown) =>
-  String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const norm = (v: unknown) =>
+  String(v ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
 function montarTarifas(rows: any[], modalidade: Modalidade): Tarifas {
   const eFora = (r: any) => norm(r.posto).includes('fora');
@@ -75,7 +59,8 @@ function montarTarifas(rows: any[], modalidade: Modalidade): Tarifas {
   };
 }
 
-const fmtBRL = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+const fmtBRL = (n: number) =>
+  n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 
 export default function PaginaDemanda() {
   const [modalidade, setModalidade] = useState<Modalidade>('Verde');
@@ -90,8 +75,7 @@ export default function PaginaDemanda() {
   const [buscandoTarifas, setBuscandoTarifas] = useState(false);
   const [notaTarifas, setNotaTarifas] = useState('');
 
-  // Lead
-  const [lead, setLead] = useState({ nome: '', empresa: '', email: '', telefone: '', cidade: '' });
+  const [lead, setLead] = useState({ nome: '', empresa: '', email: '', whatsapp: '', cidade: '' });
   const [envio, setEnvio] = useState<'idle' | 'enviando' | 'ok' | 'erro'>('idle');
   const [envioMsg, setEnvioMsg] = useState('');
 
@@ -159,25 +143,26 @@ export default function PaginaDemanda() {
   }
 
   async function handleEnviarLead() {
-    if (!lead.nome.trim() || !lead.email.trim() || !lead.telefone.trim()) {
+    if (!lead.nome.trim() || !lead.email.trim() || !lead.whatsapp.trim()) {
       setEnvio('erro');
-      setEnvioMsg('Preencha ao menos nome, e-mail e telefone.');
+      setEnvioMsg('Preencha ao menos nome, e-mail e WhatsApp.');
       return;
     }
     setEnvio('enviando');
     setEnvioMsg('');
-    try {
-      // Mesmo contrato do Módulo III: enviarLead(lead, extras). Confirme os campos
-      // do seu tipo Lead/ExtrasComerciais; aqui enriquecemos com o relatório BESS.
-      await enviarLead(
-        { ...lead, estado: 'MT' } as any,
-        { uf: 'MT', bess: montarResumoBess() } as any,
-      );
+    // Reusa o mesmo helper do Módulo III: resultado = null (Módulo II não tem FP),
+    // e o relatório BESS vai em extras.bess.
+    const resp = await enviarLead(
+      null,
+      { nome: lead.nome, empresa: lead.empresa, email: lead.email, whatsapp: lead.whatsapp, cidade: lead.cidade, estado: 'MT' },
+      { uf: 'MT', bess: montarResumoBess() },
+    );
+    if (resp.ok) {
       setEnvio('ok');
       setEnvioMsg('Proposta enviada ao time comercial! Em breve entraremos em contato.');
-    } catch (e: any) {
+    } else {
       setEnvio('erro');
-      setEnvioMsg(e?.message ?? 'Falha ao enviar. Tente novamente.');
+      setEnvioMsg(resp.error ?? 'Falha ao enviar. Tente novamente.');
     }
   }
 
@@ -248,7 +233,7 @@ export default function PaginaDemanda() {
         </div>
       </section>
 
-      {/* BLOCO 3 — Tarifas (sinergia Módulo III) */}
+      {/* BLOCO 3 — Tarifas */}
       <section style={s.card}>
         <h2 style={s.h2}>3. Tarifas (MT) — ANEEL automático</h2>
         <div style={s.row}>
@@ -334,12 +319,12 @@ export default function PaginaDemanda() {
       {/* BLOCO 5 — Funil de leads */}
       <section style={s.card}>
         <h2 style={s.h2}>5. Receber proposta detalhada</h2>
-        <span style={s.helper}>O relatório completo (modelo WEG, topologia, economia e payback) é enviado ao time comercial junto com seus dados.</span>
+        <span style={s.helper}>O relatório (modelo WEG, topologia, economia e payback) é enviado ao time comercial com seus dados.</span>
         <div style={s.row}>
           <Campo label="Nome*" v={lead.nome} on={(x) => setLead({ ...lead, nome: x })} />
           <Campo label="Empresa" v={lead.empresa} on={(x) => setLead({ ...lead, empresa: x })} />
           <Campo label="E-mail*" v={lead.email} on={(x) => setLead({ ...lead, email: x })} />
-          <Campo label="Telefone*" v={lead.telefone} on={(x) => setLead({ ...lead, telefone: x })} />
+          <Campo label="WhatsApp*" v={lead.whatsapp} on={(x) => setLead({ ...lead, whatsapp: x })} />
           <Campo label="Cidade" v={lead.cidade} on={(x) => setLead({ ...lead, cidade: x })} />
         </div>
         <button type="button" onClick={handleEnviarLead} disabled={envio === 'enviando'} style={s.leadBtn}>
