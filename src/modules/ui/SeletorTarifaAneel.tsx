@@ -69,7 +69,6 @@ export default function SeletorTarifaAneel({
   const [pisPctStr, setPisPctStr] = useState('');
   const [cofinsPctStr, setCofinsPctStr] = useState('');
 
-  const [tarifas, setTarifas] = useState<TarifaAneel[]>([]);
   const [selecionada, setSelecionada] = useState<TarifaAneel | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState('');
@@ -86,7 +85,6 @@ export default function SeletorTarifaAneel({
     setSelecionada(null);
     try {
       const res = await buscarTarifasAneel({ agente, subgrupo, modalidade, posto });
-      setTarifas(res);
       if (res.length === 0) {
         setErro('Nenhuma tarifa encontrada. Confira a grafia (use "Listar distribuidoras").');
       } else {
