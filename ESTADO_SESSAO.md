@@ -1,7 +1,53 @@
-# ESTADO DA SESSÃO — OCENERGIA Calculadora (Plataforma de Engenharia Energética)
+# ESTADO DA SESSAO — OCENERGIA Calculadora (Plataforma de Engenharia Energetica)
 
-> Arquivo de continuidade entre sessões. Mantido atualizado a cada marco.
-> Última atualização: 2026-06-24 (Híbrida FP plugada)
+> Arquivo canonico de continuidade entre sessoes.
+> Atualizar ao iniciar, ao concluir blocos relevantes e ao encerrar cada sessao.
+> Ultima atualizacao: 2026-06-24 21:01 UTC
+
+## 0. COMO USAR ESTE ARQUIVO
+
+### Objetivo
+- Servir como memoria operacional para a proxima sessao.
+- Registrar de forma concisa o que aconteceu, o estado atual do trabalho e as decisoes ja tomadas.
+
+### Regra de manutencao
+- Atualizar sempre estas secoes ao longo da sessao: **Andamento**, **Feito nesta sessao**, **Proximos passos** e **Decisoes**.
+- Manter o texto objetivo, sem duplicar logs extensos ou detalhes irrelevantes.
+- Preservar o historico tecnico consolidado nas secoes abaixo; acrescentar novos fatos em vez de reescrever a historia inteira.
+
+### Checklist de encerramento da sessao
+1. Atualizar **7. Sessao atual** com o status mais recente.
+2. Revisar **4. Proximos passos** se a prioridade mudou.
+3. Registrar novas decisoes em **5. Decisoes tomadas**.
+4. Ajustar **6. Historico de deploys-chave** quando houver novo deploy/commit importante.
+
+---
+
+## 7. SESSAO ATUAL
+
+### Identificacao
+- **Data/hora:** 2026-06-24 21:01 UTC
+- **Branch de trabalho:** `cursor/session-state-file-3694`
+- **Solicitacao desta sessao:** criar/manter um arquivo de estado da sessao para alimentar a proxima conversa.
+
+### Andamento
+- Arquivo de estado existente localizado na raiz do repositorio e adotado como fonte unica de continuidade.
+- Estrutura sendo padronizada para registrar status, feitos, proximos passos e decisoes de forma consistente.
+
+### Feito nesta sessao
+- Validado que `ESTADO_SESSAO.md` ja existia e continha contexto tecnico relevante do projeto.
+- Definido que o proprio `ESTADO_SESSAO.md` sera o arquivo canonico, evitando duplicidade.
+- Adicionada uma secao operacional no topo com instrucoes de manutencao e checklist de encerramento.
+- Registrado o resumo desta sessao para que a proxima conversa tenha contexto imediato.
+
+### Proximos passos desta linha de trabalho
+- Continuar atualizando este arquivo a cada mudanca relevante nas proximas sessoes.
+- Quando houver novas implementacoes, anotar aqui: objetivo, status, arquivos afetados, verificacoes feitas e pendencias.
+
+### Decisoes desta sessao
+- Manter `ESTADO_SESSAO.md` na raiz como referencia unica de continuidade.
+- Priorizar resumo conciso e operacional no topo, preservando abaixo o historico tecnico detalhado do projeto.
+- Evitar criar outro arquivo paralelo para nao dividir o contexto entre multiplas fontes.
 
 ---
 
