@@ -40,10 +40,15 @@
 - Nível 3 (Entrada): sub-abas. Capacitores tem 4: `manual`, `fatura`, `massa`, `hibrida`. BESS renderiza `PaginaDemanda` (que tem suas próprias sub-abas internas).
 
 ### Módulo I — Núcleo Tarifário (ANEEL) ✅
-- `api/aneel-tarifas.ts`: `datastore_search` (offset). `datastore_search_sql` e param `q` QUEBRADOS.
+- `api/aneel-tarifas.ts`: `datastore_search` (offset). `datastore_search_sql` e param `q` QUEBRADOS — não usar.
 - Recurso ANEEL: `fcf2906c-7c32-4b9b-a637-054e7a5234f4`, WIDE. Energia MWh → ÷1000 (R$/kWh) só no backend; demanda em kW intocada.
-- `SeletorTarifaAneel.tsx`: default EMT, fallback se grafias 404.
-- **Pendência:** `/grafias-aneel.json` 404 em produção (robô commitou na raiz, não em `public/`). NÃO bloqueia (fallback EMT).
+- `SeletorTarifaAneel.tsx`: default EMT, fallback se grafias indisponível.
+- **grafias-aneel.json:** ✅ ESTÁVEL — serve 200 OK em produção (gerado 2026-06-22, 318.617 registros; lista completa de distribuidoras incl. EMT, subgrupos, modalidades, postos).
+- **Pipeline de sync (NÃO MEXER — está correto):**
+  - `seu_script_aneel.py`: escreve em `public/grafias-aneel.json` (env `GRAFIAS_OUTPUT`, padrão correto). Pagina por offset, descobre colunas reais, não usa SQL/q.
+  - `.github/workflows/sincroniza-grafias-aneel.yml`: cron seg 06:00 UTC + dispatch manual; `git add public/grafias-aneel.json` + commit/push.
+  - Observação (melhoria opcional): commit do robô usa `[skip ci]` → sync semanal não dispara deploy sozinho; a publicação do JSON novo depende de um deploy de código subsequente. Para auto-publicar a cada sync, remover `[skip ci]` da mensagem de commit no `.yml`. Não urgente.
+---
 
 ### Módulo II — Demanda/BESS ✅ (funil PROVADO)
 - `src/utils/motorDemanda.ts`: motor 12 meses. DoD 0,90 / efic 0,88. Assinatura `simularModuloII({ modalidade, cargaCritica, meses, tarifas, capexBessReais?, ... })`. SEM `opcoesCustomizadas`.
@@ -105,3 +110,4 @@
 - `8029a39` Update PaginaDemanda.tsx — READY (Tarefa 1: lote + badge)
 - `ef67afd` Update catalogoTrafos.ts — READY (bug quantity→quantidade)
 - `89844501` Update enviarLead.ts — READY (import ResultadoCalculadoraIndustrial)
+---
