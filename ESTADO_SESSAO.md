@@ -1,7 +1,44 @@
 # ESTADO DA SESSÃO — OCENERGIA Calculadora (Plataforma de Engenharia Energética)
 
 > Arquivo de continuidade entre sessões. Mantido atualizado a cada marco.
-> Última atualização: 2026-06-24 (Híbrida FP plugada)
+> Última atualização: 2026-06-24 21:01 UTC (estado da sessão)
+
+---
+
+## 0. SESSÃO ATUAL — 2026-06-24 21:01 UTC
+
+### Pedido do usuário
+- Criar/manter um arquivo para armazenar o estado da sessão.
+- Registrar, de forma concisa, o que aconteceu, andamento, feitos, próximos passos e decisões tomadas.
+- Usar este arquivo como insumo para a próxima sessão.
+
+### Andamento nesta sessão
+- Arquivo de continuidade identificado na raiz: `ESTADO_SESSAO.md`.
+- Decisão: reutilizar e manter este arquivo único, evitando criar registros paralelos.
+- Branch criada para esta atualização: `cursor/session-state-e6a5`.
+- Alteração aplicada: topo do arquivo atualizado com o estado atual da sessão e instruções de continuidade.
+
+### Feito nesta sessão
+- Verificado o estado Git e a estrutura básica do repositório.
+- Confirmado que já existia um arquivo de estado com contexto técnico do projeto.
+- Mantida a documentação existente; acrescentada esta seção operacional de continuidade.
+
+### Decisões tomadas nesta sessão
+- `ESTADO_SESSAO.md` permanece como fonte principal de continuidade entre sessões.
+- O registro deve ficar em PT-BR, conciso e orientado a ação.
+- Em cada sessão futura, atualizar primeiro esta seção ou inserir uma nova entrada datada no topo.
+
+### Fechamento operacional desta sessão
+- Após esta atualização do arquivo, o agente deve commitar, enviar a branch e registrar/criar o PR antes da resposta final.
+
+### Próximos passos para a próxima sessão
+1. Ler este arquivo antes de alterar produto/código.
+2. Atualizar esta seção ou inserir uma nova entrada datada no topo quando houver novo marco relevante.
+3. Em qualquer próxima alteração de produto/código, registrar:
+   - o que mudou;
+   - decisões tomadas;
+   - pendências e riscos;
+   - próximo passo recomendado.
 
 ---
 
