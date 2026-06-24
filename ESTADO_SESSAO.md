@@ -1,9 +1,35 @@
 # ESTADO DA SESSÃO — OCENERGIA Calculadora (Plataforma de Engenharia Energética)
 
 > Arquivo de continuidade entre sessões. Mantido atualizado a cada marco.
-> Última atualização: 2026-06-24 (Híbrida FP plugada)
+> Última atualização: 2026-06-24 21:01 UTC (registro de continuidade da sessão estruturado)
 
 ---
+
+## 7. SESSÃO CORRENTE (2026-06-24 21:01 UTC)
+
+### Objetivo da sessão
+- Formalizar um registro de continuidade para alimentar a próxima sessão com contexto confiável.
+
+### Andamento / o que foi feito
+- Confirmado que `ESTADO_SESSAO.md` já existia no repositório e foi escolhido como **arquivo oficial de estado de sessão**.
+- Criada a branch `cursor/estado-sessao-b639` para versionar esta melhoria de processo.
+- Adicionada esta seção de handoff concisa para registrar progresso, decisões e próximos passos.
+
+### Decisões tomadas
+- **Não criar arquivo duplicado**; manter um único ponto de verdade em `ESTADO_SESSAO.md`.
+- Registrar marcos em formato curto e objetivo (feito, decisão, próximo passo, bloqueio quando houver).
+
+### Próximos passos
+1. A cada nova solicitação implementada, atualizar esta seção com:
+   - status atual;
+   - mudanças concluídas;
+   - decisões técnicas;
+   - pendências/bloqueios;
+   - próxima ação recomendada.
+2. Antes de encerrar cada sessão, deixar um snapshot final de handoff com timestamp.
+
+### Status agora
+- Sessão preparada para continuidade; aguardando próxima demanda de implementação para registrar novos marcos.
 
 ## 1. CONTEXTO DO PROJETO
 
