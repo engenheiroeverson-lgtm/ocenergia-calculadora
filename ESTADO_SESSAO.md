@@ -2,7 +2,7 @@
 
 > Arquivo canonico de continuidade entre sessoes.
 > Atualizar ao iniciar, ao concluir blocos relevantes e ao encerrar cada sessao.
-> Ultima atualizacao: 2026-06-24 21:01 UTC
+> Ultima atualizacao: 2026-06-24 21:03 UTC
 
 ## 0. COMO USAR ESTE ARQUIVO
 
@@ -39,8 +39,8 @@
 - Definido que o proprio `ESTADO_SESSAO.md` sera o arquivo canonico, evitando duplicidade.
 - Adicionada uma secao operacional no topo com instrucoes de manutencao e checklist de encerramento.
 - Registrado o resumo desta sessao para que a proxima conversa tenha contexto imediato.
-- Commit criado: `aeb5577` (`docs: padroniza estado da sessao`).
-- Branch publicada no remoto e solicitacao de PR preparada contra `revisao-1`.
+- Commits desta sessao criados e enviados para o remoto.
+- Solicitacao de PR preparada contra `revisao-1`.
 
 ### Proximos passos desta linha de trabalho
 - Continuar atualizando este arquivo a cada mudanca relevante nas proximas sessoes.
