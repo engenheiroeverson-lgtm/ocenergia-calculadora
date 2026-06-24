@@ -1,7 +1,7 @@
 // src/modules/demanda/PaginaDemanda.tsx
 // MÓDULO II — Gestão de Demanda (Grupo A) + BESS WEG. Vite/React 19, estilos inline.
 // Tarifas ao vivo da ANEEL (Módulo III) + funil de leads (enviarLead) com e-mail
-// enriquecido pelo relatório BESS. Tabela de 12 meses com mock realista de cliente MT.
+// enriquecido pelo relatório BESS. Tabela de 12 meses com mock realista + preenchimento em lote.
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -75,6 +75,15 @@ export default function PaginaDemanda() {
   const [buscandoTarifas, setBuscandoTarifas] = useState(false);
   const [notaTarifas, setNotaTarifas] = useState('');
 
+  // Preenchimento em lote (Entrada Única) — strings vazias = não sobrescreve.
+  const [loteConsPonta, setLoteConsPonta] = useState('');
+  const [loteConsForaPonta, setLoteConsForaPonta] = useState('');
+  const [loteDemMedida, setLoteDemMedida] = useState('');
+  const [loteDemContratada, setLoteDemContratada] = useState('');
+
+  // Feedback de importação de fatura (parser real ainda não plugado).
+  const [nomeArquivoImportado, setNomeArquivoImportado] = useState<string | null>(null);
+
   const [lead, setLead] = useState({ nome: '', empresa: '', email: '', whatsapp: '', cidade: '' });
   const [envio, setEnvio] = useState<'idle' | 'enviando' | 'ok' | 'erro'>('idle');
   const [envioMsg, setEnvioMsg] = useState('');
@@ -119,6 +128,41 @@ export default function PaginaDemanda() {
     setTarifas((prev) => ({ ...prev, [campo]: Number(valor.replace(',', '.')) || 0 }));
   }
 
+  // Replica os campos preenchidos da barra superior em todos os 12 meses.
+  // Campo vazio = mantém o valor atual de cada linha (não sobrescreve).
+  function replicarNosMeses() {
+    const num = (s: string) => (s.trim() === '' ? null : Number(s.replace(',', '.')) || 0);
+    const cp = num(loteConsPonta);
+    const cfp = num(loteConsForaPonta);
+    const dm = num(loteDemMedida);
+    const dc = num(loteDemContratada);
+    const azul = modalidade === 'Azul';
+
+    setMeses((prev) => prev.map((m) => ({
+      ...m,
+      consumoPontaKwh: cp ?? m.consumoPontaKwh,
+      consumoForaPontaKwh: cfp ?? m.consumoForaPontaKwh,
+      // Demanda medida/contratada: em Verde vão no campo único (ForaPonta);
+      // em Azul replicamos nos dois postos para manter a tabela coerente.
+      demandaMedidaForaPontaKw: dm ?? m.demandaMedidaForaPontaKw,
+      demandaContratadaForaPontaKw: dc ?? m.demandaContratadaForaPontaKw,
+      demandaMedidaPontaKw: azul ? (dm ?? m.demandaMedidaPontaKw) : m.demandaMedidaPontaKw,
+      demandaContratadaPontaKw: azul ? (dc ?? m.demandaContratadaPontaKw) : m.demandaContratadaPontaKw,
+    })));
+  }
+
+  function handleImportarFatura(e: React.ChangeEvent<HTMLInputElement>) {
+    const arquivo = e.target.files?.[0];
+    if (!arquivo) return;
+    // NOTA: o parser real de PDF ainda não está plugado. Por ora, apenas
+    // registramos o nome do arquivo recebido (sem afirmar extração de dados).
+    setNomeArquivoImportado(arquivo.name);
+    e.target.value = ''; // permite re-selecionar o mesmo arquivo depois
+  }
+  function limparImportacao() {
+    setNomeArquivoImportado(null);
+  }
+
   const resultado: ResultadoModuloII = useMemo(() => {
     const capex = capexStr.trim() ? Number(capexStr.replace(/\./g, '').replace(',', '.')) : undefined;
     return simularModuloII({ modalidade, cargaCritica, meses, tarifas, capexBessReais: capex });
@@ -133,7 +177,7 @@ export default function PaginaDemanda() {
       energiaKwh: resultado.dimensionamento.energiaKwh,
       topologia: resultado.topologia.tipo,
       hardware: resultado.hardware.descricao,
-      demandaContratadaOtimaKw: resultado.demandaContratadaOtimaForaPonta, // 🌟 Campo embutido com sucesso!
+      demandaContratadaOtimaKw: resultado.demandaContratadaOtimaForaPonta,
       mesesUltrapassagem: resultado.mesesComUltrapassagem.length,
       faturaAtualAnual: f.faturaAtualAnual,
       faturaOtimizadaAnual: f.faturaOtimizadaAnual,
@@ -196,12 +240,45 @@ export default function PaginaDemanda() {
       <section style={s.card}>
         <div style={s.cardHead}>
           <h2 style={s.h2}>2. Histórico de 12 meses</h2>
-          <label style={s.uploadBtn}>
-            Importar fatura (PDF)
-            <input type="file" accept="application/pdf,image/*" style={{ display: 'none' }}
-              onChange={() => setNotaTarifas('Leitura de fatura: conectar ao parser do UploadFatura (próximo passo).')} />
-          </label>
+          <div style={s.importWrap}>
+            <label style={s.uploadBtn}>
+              Importar fatura (PDF)
+              <input type="file" accept="application/pdf,image/*" style={{ display: 'none' }} onChange={handleImportarFatura} />
+            </label>
+            {nomeArquivoImportado && (
+              <span style={s.badgeOk}>
+                🟢 Arquivo recebido: {nomeArquivoImportado} — leitura automática em breve
+                <button type="button" onClick={limparImportacao} style={s.limparBtn}>Limpar</button>
+              </span>
+            )}
+          </div>
         </div>
+
+        {/* Barra de preenchimento rápido / entrada única */}
+        <div style={s.loteBox}>
+          <span style={s.loteTitulo}>⚡ Preenchimento Rápido / Entrada Única</span>
+          <span style={s.helper}>Preencha só o que quiser replicar; campos em branco mantêm o valor de cada mês.</span>
+          <div style={s.loteGrid}>
+            <div style={s.field}>
+              <label style={s.labelSm}>Consumo Ponta (igual)</label>
+              <input type="number" value={loteConsPonta} onChange={(e) => setLoteConsPonta(e.target.value)} placeholder="kWh" style={s.input} />
+            </div>
+            <div style={s.field}>
+              <label style={s.labelSm}>Consumo Fora-P. (igual)</label>
+              <input type="number" value={loteConsForaPonta} onChange={(e) => setLoteConsForaPonta(e.target.value)} placeholder="kWh" style={s.input} />
+            </div>
+            <div style={s.field}>
+              <label style={s.labelSm}>Demanda Medida (igual)</label>
+              <input type="number" value={loteDemMedida} onChange={(e) => setLoteDemMedida(e.target.value)} placeholder="kW" style={s.input} />
+            </div>
+            <div style={s.field}>
+              <label style={s.labelSm}>Demanda Contratada (igual)</label>
+              <input type="number" value={loteDemContratada} onChange={(e) => setLoteDemContratada(e.target.value)} placeholder="kW" style={s.input} />
+            </div>
+            <button type="button" onClick={replicarNosMeses} style={s.replicarBtn}>⚡ Replicar nos 12 Meses</button>
+          </div>
+        </div>
+
         <div style={s.tableWrap}>
           <table style={s.table}>
             <thead>
@@ -404,9 +481,11 @@ const s: Record<string, React.CSSProperties> = {
   h3: { fontSize: 15, fontWeight: 800, color: '#1B3A6B', margin: '0 0 6px' },
   card: { padding: 16, borderRadius: 12, background: '#FFFFFF', border: '1px solid #D5E8F3', display: 'grid', gap: 12 },
   cardHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
+  importWrap: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
   row: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 },
   field: { display: 'grid', gap: 6 },
   label: { fontSize: 13, fontWeight: 700, color: '#1B3A6B' },
+  labelSm: { fontSize: 12, fontWeight: 700, color: '#1B3A6B' },
   input: { borderRadius: 10, border: '1px solid #D5E8F3', padding: '10px 12px', fontSize: 14, boxSizing: 'border-box' },
   inputNum: { borderRadius: 10, border: '1px solid #D5E8F3', padding: '10px 12px', fontSize: 14, boxSizing: 'border-box', fontVariantNumeric: 'tabular-nums' },
   helper: { fontSize: 12, color: '#475467' },
@@ -414,6 +493,12 @@ const s: Record<string, React.CSSProperties> = {
   toggleOn: { padding: '10px 16px', borderRadius: 10, border: '2px solid #2E86C1', background: '#EEF5FF', color: '#1B3A6B', fontWeight: 700, cursor: 'pointer' },
   toggleOff: { padding: '10px 16px', borderRadius: 10, border: '1px solid #D5E8F3', background: '#FFFFFF', color: '#475467', fontWeight: 600, cursor: 'pointer' },
   uploadBtn: { padding: '8px 14px', borderRadius: 10, border: '1px solid #2E86C1', color: '#2E86C1', fontWeight: 700, fontSize: 13, cursor: 'pointer' },
+  badgeOk: { display: 'inline-flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 999, background: '#E8F8F0', color: '#1E7E47', fontWeight: 700, fontSize: 12 },
+  limparBtn: { border: 'none', background: 'transparent', color: '#1E7E47', textDecoration: 'underline', cursor: 'pointer', fontWeight: 700, fontSize: 12, padding: 0 },
+  loteBox: { display: 'grid', gap: 8, padding: 12, borderRadius: 10, background: '#FFF7ED', border: '1px solid #F39C12' },
+  loteTitulo: { fontSize: 14, fontWeight: 800, color: '#E67E22' },
+  loteGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, alignItems: 'end' },
+  replicarBtn: { padding: '10px 16px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #F39C12 0%, #E67E22 100%)', color: '#FFFFFF', fontWeight: 800, fontSize: 14, cursor: 'pointer', height: 'fit-content' },
   tableWrap: { overflowX: 'auto' },
   table: { borderCollapse: 'collapse', width: '100%', fontSize: 12 },
   th: { textAlign: 'left', padding: '8px 6px', color: '#1B3A6B', borderBottom: '2px solid #D5E8F3', whiteSpace: 'nowrap' },
