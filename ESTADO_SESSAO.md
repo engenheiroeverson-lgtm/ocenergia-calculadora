@@ -1,7 +1,30 @@
 # ESTADO DA SESSÃO — OCENERGIA Calculadora (Plataforma de Engenharia Energética)
 
-> Arquivo de continuidade entre sessões. Mantido atualizado a cada marco.
-> Última atualização: 2026-06-24 (Híbrida FP plugada)
+> **Arquivo de continuidade entre sessões.** Mantido atualizado a cada marco.
+> A próxima sessão deve ler este arquivo **antes** de qualquer alteração.
+> Última atualização: **2026-06-24** (arquivo de handoff reforçado + motorDemanda refinado)
+
+---
+
+## 0. SESSÃO ATUAL — RESUMO RÁPIDO (handoff)
+
+| Campo | Valor |
+|-------|-------|
+| **Data** | 2026-06-24 |
+| **Foco** | Estabelecer e manter `ESTADO_SESSAO.md` como fonte de continuidade |
+| **Feito nesta sessão** | Arquivo de estado revisado; registro do commit `caa5854` (motorDemanda); estrutura de handoff reforçada |
+| **Bloqueios** | Nenhum |
+| **Próximo passo imediato** | Validar Híbrida FP na tela (Projeto Padrão 300 kVA/380 V; Customizado motor CV) |
+
+### O que aconteceu (cronológico)
+1. Usuário solicitou arquivo persistente de estado da sessão para alimentar a próxima sessão.
+2. Confirmado que `ESTADO_SESSAO.md` já existia na raiz do repo — foi **revisado e atualizado** (não recriado do zero).
+3. Sincronizado com commit `caa5854` (`motorDemanda.ts`): lógica de ultrapassagem documentada no código + correção modalidade Verde.
+
+### Decisões desta sessão
+- **`ESTADO_SESSAO.md` na raiz** é o arquivo oficial de handoff (não criar duplicata).
+- Estrutura fixa: §0 resumo rápido · §1 contexto · §2 princípios · §3 módulos · §4 próximos passos · §5 decisões · §6 histórico · §7 log de sessões.
+- Cada sessão deve atualizar §0, §4 (se mudou), §5 (novas decisões) e acrescentar entrada em §7.
 
 ---
 
@@ -28,6 +51,7 @@
 3. **Verdade acima de utilidade.** Sinalizar incerteza; não inventar APIs/campos; não afirmar na UI o que não é real (badge de PDF é honesto).
 4. **Componentes isolados (Opção A).** Criar novo, validar READY, só depois plugar.
 5. **Snapshot `/mnt/project/` NÃO confiável.** GitHub é a fonte de verdade. Pedir arquivo atual antes de editar.
+6. **Atualizar este arquivo** ao final de cada sessão ou marco relevante.
 
 ---
 
@@ -48,11 +72,14 @@
   - `seu_script_aneel.py`: escreve em `public/grafias-aneel.json` (env `GRAFIAS_OUTPUT`, padrão correto). Pagina por offset, descobre colunas reais, não usa SQL/q.
   - `.github/workflows/sincroniza-grafias-aneel.yml`: cron seg 06:00 UTC + dispatch manual; `git add public/grafias-aneel.json` + commit/push.
   - Observação (melhoria opcional): commit do robô usa `[skip ci]` → sync semanal não dispara deploy sozinho; a publicação do JSON novo depende de um deploy de código subsequente. Para auto-publicar a cada sync, remover `[skip ci]` da mensagem de commit no `.yml`. Não urgente.
----
 
 ### Módulo II — Demanda/BESS ✅ (funil PROVADO)
 - `src/utils/motorDemanda.ts`: motor 12 meses. DoD 0,90 / efic 0,88. Assinatura `simularModuloII({ modalidade, cargaCritica, meses, tarifas, capexBessReais?, ... })`. SEM `opcoesCustomizadas`.
-  - ⚠️ Ultrapassagem 5%/2× marcado `VALIDAR` (REN 1.000/2021) antes de uso real.
+  - ⚠️ Ultrapassagem 5%/2× marcado `VALIDAR` (REN 1.000/2021) antes de uso real — parâmetros isolados em `PARAMETROS_REGULATORIOS`.
+  - **Atualização `caa5854`:** `calcularCustoDemanda` com lógica explícita:
+    - Se DAM > DAC × 1,05 → fatura normal = DAC; ultrapassagem = (DAM − DAC) × TUSD × 2.
+    - Senão → fatura normal = max(DAM, DAC); sem ultrapassagem.
+  - **Modalidade Verde:** demanda única usa `max(ponta, fora-ponta)` para medida e contratada no faturamento.
 - `src/modules/demanda/PaginaDemanda.tsx`: sub-abas "Análise Detalhada (12 meses)" e "Simulador Expresso (1 fatura)". Barra de preenchimento em lote + badge de importação honesto.
 - `src/modules/demanda/SimuladorRapidoBess.tsx`: autônomo (não importa motorDemanda). Premissas via sliders: PCS ×1,20 · Energia ×1,10 · DoD 0,80 · Efic 0,90 (DIFERENTES do motor, de propósito). Trava C-Rate Conservador/Justo. Payback Puro vs Combinado (backup: freq × prejuízo). Degraus: bateria 215 kWh; PCS [300,600,900,1200,1500,1800]. Usa tarifa COM tributos.
 
@@ -78,17 +105,18 @@
 
 ## 4. PRÓXIMOS PASSOS (ordem sugerida)
 
-1. **Validar a Híbrida na tela** (Projeto Padrão 300kVA/380V; Customizado motor CV). Se aprovada, decidir se vira padrão do módulo ou se substitui a calculadora antiga.
-2. Corrigir `grafias-aneel.json` → `public/` + remover `[skip ci]` do workflow.
-3. (Opcional) Configurar env `WHATSAPP_ENGENHARIA_WEBHOOK_URL`.
-4. Plugar parser real de PDF de fatura (hoje stub; badge honesto).
-5. Validar parâmetros REN 1.000/2021 (ultrapassagem 5%/2×).
-6. Construir visões Leigo (B2C) módulo a módulo.
-7. Módulos 4 (Solar on-grid Lei 14.300) e 5 (Residencial NBR 5410) — não iniciados.
+1. **Validar a Híbrida na tela** (Projeto Padrão 300 kVA/380 V; Customizado motor CV). Se aprovada, decidir se vira padrão do módulo ou substitui a calculadora antiga.
+2. **Validar motorDemanda** após `caa5854` — cenários Azul e Verde com ultrapassagem e sem.
+3. Corrigir `grafias-aneel.json` → `public/` + remover `[skip ci]` do workflow (se quiser auto-deploy do sync).
+4. (Opcional) Configurar env `WHATSAPP_ENGENHARIA_WEBHOOK_URL`.
+5. Plugar parser real de PDF de fatura (hoje stub; badge honesto).
+6. Validar parâmetros REN 1.000/2021 (ultrapassagem 5%/2×) na fonte primária.
+7. Construir visões Leigo (B2C) módulo a módulo.
+8. Módulos 4 (Solar on-grid Lei 14.300) e 5 (Residencial NBR 5410) — não iniciados.
 
 ---
 
-## 5. DECISÕES TOMADAS (registro)
+## 5. DECISÕES TOMADAS (registro cumulativo)
 
 - **Opção A (isolamento modular)** para toda expansão — zero regressão.
 - **SimuladorRapidoBess** separado, premissas próprias (NÃO unificar com motorDemanda).
@@ -98,16 +126,40 @@
 - **Híbrida exige Tensão (V)** no modo customizado.
 - **Híbrida plugada como sub-aba** (Opção 2), não substitui a calculadora antiga — convivem para comparação.
 - **e-mail Locaweb** é a versão correta; Gmail é proibida.
+- **`ESTADO_SESSAO.md`** é o arquivo oficial de continuidade entre sessões (raiz do repo).
 
 ---
 
 ## 6. HISTÓRICO DE DEPLOYS-CHAVE (READY)
 
-- `20fd329` Update TelaPrincipal.tsx — **READY** (Híbrida plugada como 4ª sub-aba)
-- `0ee1ca3` Update CalculadoraHibridaFP.tsx — READY (Tarefa 3, import corrigido)
-- `798ae71` Update PaginaDemanda.tsx — READY (sub-abas Nível 3)
-- `77c40fd` Create SimuladorRapidoBess.tsx — READY (Tarefa 2)
-- `8029a39` Update PaginaDemanda.tsx — READY (Tarefa 1: lote + badge)
-- `ef67afd` Update catalogoTrafos.ts — READY (bug quantity→quantidade)
-- `89844501` Update enviarLead.ts — READY (import ResultadoCalculadoraIndustrial)
+| Commit | Descrição | Status |
+|--------|-----------|--------|
+| `caa5854` | Update motorDemanda.ts — ultrapassagem explícita + Verde | Pendente confirmar READY |
+| `20fd329` | Update TelaPrincipal.tsx — Híbrida plugada (4ª sub-aba) | **READY** |
+| `0ee1ca3` | Update CalculadoraHibridaFP.tsx — Tarefa 3, import corrigido | **READY** |
+| `798ae71` | Update PaginaDemanda.tsx — sub-abas Nível 3 | **READY** |
+| `77c40fd` | Create SimuladorRapidoBess.tsx — Tarefa 2 | **READY** |
+| `8029a39` | Update PaginaDemanda.tsx — Tarefa 1: lote + badge | **READY** |
+| `ef67afd` | Update catalogoTrafos.ts — bug quantity→quantidade | **READY** |
+| `8984450` | Update enviarLead.ts — import ResultadoCalculadoraIndustrial | **READY** |
+
 ---
+
+## 7. LOG DE SESSÕES
+
+### 2026-06-24 — Handoff + motorDemanda
+- **Pedido:** criar arquivo de estado da sessão para alimentar a próxima.
+- **Ação:** `ESTADO_SESSAO.md` revisado; adicionada §0 (resumo rápido) e §7 (log); sincronizado commit `caa5854`.
+- **Próximo:** validar Híbrida FP na UI de produção.
+
+### 2026-06-24 — Híbrida FP plugada
+- **Pedido:** integrar CalculadoraHibridaFP como 4ª sub-aba de capacitores.
+- **Ação:** `TelaPrincipal.tsx` atualizado (`20fd329`).
+- **Próximo:** validação em tela antes de substituir calculadora antiga.
+
+### Sessões anteriores
+- Ver commits `c141b7b` / `9831a3e` para criação inicial deste arquivo e histórico completo do projeto.
+
+---
+
+*Instrução para a próxima sessão: ler §0 e §4 primeiro; depois o módulo relevante em §3.*
