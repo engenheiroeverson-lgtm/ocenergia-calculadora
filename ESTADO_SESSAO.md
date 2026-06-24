@@ -1,7 +1,7 @@
 # ESTADO DA SESSÃO — OCENERGIA Calculadora (Plataforma de Engenharia Energética)
 
 > Arquivo de continuidade entre sessões. Mantido atualizado a cada marco.
-> Última atualização: 2026-06-24 (Híbrida FP plugada)
+> Última atualização: 2026-06-24 (sync grafias ANEEL auto-publica)
 
 ---
 
@@ -46,8 +46,7 @@
 - **grafias-aneel.json:** ✅ ESTÁVEL — serve 200 OK em produção (gerado 2026-06-22, 318.617 registros; lista completa de distribuidoras incl. EMT, subgrupos, modalidades, postos).
 - **Pipeline de sync (NÃO MEXER — está correto):**
   - `seu_script_aneel.py`: escreve em `public/grafias-aneel.json` (env `GRAFIAS_OUTPUT`, padrão correto). Pagina por offset, descobre colunas reais, não usa SQL/q.
-  - `.github/workflows/sincroniza-grafias-aneel.yml`: cron seg 06:00 UTC + dispatch manual; `git add public/grafias-aneel.json` + commit/push.
-  - Observação (melhoria opcional): commit do robô usa `[skip ci]` → sync semanal não dispara deploy sozinho; a publicação do JSON novo depende de um deploy de código subsequente. Para auto-publicar a cada sync, remover `[skip ci]` da mensagem de commit no `.yml`. Não urgente.
+  - `.github/workflows/sincroniza-grafias-aneel.yml`: cron seg 06:00 UTC + dispatch manual; `git add public/grafias-aneel.json` + commit/push sem `[skip ci]`, permitindo que o sync semanal publique o JSON atualizado em deploy subsequente.
 ---
 
 ### Módulo II — Demanda/BESS ✅ (funil PROVADO)
@@ -79,7 +78,7 @@
 ## 4. PRÓXIMOS PASSOS (ordem sugerida)
 
 1. **Validar a Híbrida na tela** (Projeto Padrão 300kVA/380V; Customizado motor CV). Se aprovada, decidir se vira padrão do módulo ou se substitui a calculadora antiga.
-2. Corrigir `grafias-aneel.json` → `public/` + remover `[skip ci]` do workflow.
+2. ✅ Corrigido: `grafias-aneel.json` em `public/` + workflow sem `[skip ci]`.
 3. (Opcional) Configurar env `WHATSAPP_ENGENHARIA_WEBHOOK_URL`.
 4. Plugar parser real de PDF de fatura (hoje stub; badge honesto).
 5. Validar parâmetros REN 1.000/2021 (ultrapassagem 5%/2×).
