@@ -49,6 +49,8 @@ jobs:
           if git diff --staged --quiet; then
             echo "Sem mudanças nas grafias — nada a commitar."
           else
-            git commit -m "chore: sincroniza grafias ANEEL [skip ci]"
+            # SEM [skip ci]: o commit do robô deve disparar o deploy da Vercel
+            # para auto-publicar o grafias-aneel.json novo a cada sync semanal.
+            git commit -m "chore: sincroniza grafias ANEEL"
             git push
           fi
