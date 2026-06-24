@@ -1,7 +1,13 @@
 # ESTADO DA SESSÃO — OCENERGIA Calculadora (Plataforma de Engenharia Energética)
 
 > Arquivo de continuidade entre sessões. Mantido atualizado a cada marco.
-> Última atualização: 2026-06-24 (Híbrida FP plugada)
+> Última atualização: 2026-06-24 (Protocolo de continuidade formalizado)
+>
+> **COMO USAR (ler no início de toda sessão):** este é o arquivo-âncora entre sessões. No
+> começo, leia-o por inteiro para recuperar contexto. No fim (ou a cada marco), atualize:
+> a data acima, a seção 3 (estado dos módulos), a seção 4 (próximos passos), a seção 5
+> (decisões) e a seção 6 (deploys READY). Mantenha conciso: registre o que mudou, por que,
+> e o que vem a seguir — não duplique código.
 
 ---
 
@@ -98,11 +104,13 @@
 - **Híbrida exige Tensão (V)** no modo customizado.
 - **Híbrida plugada como sub-aba** (Opção 2), não substitui a calculadora antiga — convivem para comparação.
 - **e-mail Locaweb** é a versão correta; Gmail é proibida.
+- **Protocolo de continuidade:** `ESTADO_SESSAO.md` é o arquivo-âncora oficial entre sessões — lido no início e atualizado ao fim de cada sessão/marco (instruções no cabeçalho).
 
 ---
 
 ## 6. HISTÓRICO DE DEPLOYS-CHAVE (READY)
 
+- _(sessão 2026-06-24)_ Atualização `ESTADO_SESSAO.md` — protocolo de continuidade formalizado (cabeçalho "COMO USAR" + decisão registrada). Sem mudança de código de produção.
 - `20fd329` Update TelaPrincipal.tsx — **READY** (Híbrida plugada como 4ª sub-aba)
 - `0ee1ca3` Update CalculadoraHibridaFP.tsx — READY (Tarefa 3, import corrigido)
 - `798ae71` Update PaginaDemanda.tsx — READY (sub-abas Nível 3)
