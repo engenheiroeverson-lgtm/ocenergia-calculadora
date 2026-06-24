@@ -1,7 +1,36 @@
 # ESTADO DA SESSÃO — OCENERGIA Calculadora (Plataforma de Engenharia Energética)
 
 > Arquivo de continuidade entre sessões. Mantido atualizado a cada marco.
-> Última atualização: 2026-06-24 (Híbrida FP plugada)
+> Última atualização: 2026-06-24 21:01 UTC (arquivo de estado da sessão atualizado)
+
+---
+
+## 0. SESSÃO ATUAL — 2026-06-24 21:01 UTC
+
+### Pedido do usuário
+- Criar/manter um arquivo para armazenar o estado da sessão, com relatório conciso do que aconteceu, andamento, próximos passos e decisões tomadas, para alimentar a próxima sessão.
+
+### Andamento desta intervenção
+- O arquivo `ESTADO_SESSAO.md` já existia na raiz do repositório.
+- Decisão: reaproveitar este arquivo como fonte de continuidade, evitando criar um segundo documento com a mesma finalidade.
+- Branch criada para a alteração: `cursor/estado-sessao-049f`.
+- Alteração realizada: registrar no topo deste documento o estado da sessão atual.
+
+### Feito nesta sessão
+- Conferido o estado inicial do Git e da raiz do projeto.
+- Lido o conteúdo atual do `ESTADO_SESSAO.md`.
+- Identificado que o arquivo já contém contexto relevante do projeto, módulos, decisões e próximos passos.
+
+### Próximos passos para a próxima sessão
+1. Ler primeiro este arquivo antes de alterar o projeto.
+2. Atualizar a seção "SESSÃO ATUAL" sempre que houver novo marco, decisão ou mudança de direção.
+3. Manter os próximos passos do projeto na seção 4 como fila principal de trabalho.
+4. Evitar duplicar este documento; `ESTADO_SESSAO.md` é a fonte de continuidade.
+
+### Decisões tomadas nesta sessão
+- Usar `ESTADO_SESSAO.md` como arquivo oficial de continuidade da sessão.
+- Manter o histórico existente e acrescentar atualizações no topo para facilitar leitura pela próxima sessão.
+- Escrever o relatório em PT-BR, alinhado ao idioma do projeto e do usuário.
 
 ---
 
