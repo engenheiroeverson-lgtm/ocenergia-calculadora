@@ -1,7 +1,18 @@
 # ESTADO DA SESSÃO — OCENERGIA Calculadora (Plataforma de Engenharia Energética)
 
-> Arquivo de continuidade entre sessões. Mantido atualizado a cada marco.
-> Última atualização: 2026-06-24 (Híbrida FP plugada)
+> **Arquivo oficial de continuidade entre sessões.** É a fonte de verdade do andamento do projeto e DEVE alimentar a próxima sessão.
+> Última atualização: 2026-06-24 (formalização do protocolo de continuidade + ambiente Cursor Cloud Agent).
+
+### COMO USAR E MANTER ESTE ARQUIVO (protocolo)
+1. **Início de sessão:** ler este arquivo INTEIRO antes de qualquer ação. Ele substitui a memória entre sessões.
+2. **Durante a sessão:** ao concluir cada marco (entrega, deploy READY, decisão), atualizar a seção correspondente.
+3. **Fim de sessão / antes de encerrar o turno:** revisar e atualizar:
+   - `§3 Módulos — Estado Atual` (o que mudou)
+   - `§4 Próximos Passos` (o que ficou pendente / ordem sugerida)
+   - `§5 Decisões Tomadas` (toda decisão nova, com a justificativa)
+   - `§6 Histórico de Deploys/Commits-chave`
+   - a data de "Última atualização" no topo.
+4. **Regra de ouro:** ser conciso e verdadeiro. Registrar o que É real (não o planejado como se fosse feito). Sinalizar incertezas com ⚠️ e itens a validar com `VALIDAR`.
 
 ---
 
@@ -11,7 +22,8 @@
 - **Produção:** `ocenergia-calculadora.vercel.app`
 - **Stack:** Vite + React 19 + TypeScript + PWA. **Sem Tailwind** — estilos inline via `styles: Record<string, React.CSSProperties>`.
 - **Build:** `tsc -b && vite build` (strict). Arquivos `api/*.ts` buildados à parte pela Vercel (esbuild), fora do `tsc -b`.
-- **Fluxo:** OCENERGIA commita manual pela UI web do GitHub (Claude NÃO tem push). Entregas = blocos de código completos para colar.
+- **Fluxo (histórico):** OCENERGIA commitava manual pela UI web do GitHub (Claude via chat NÃO tinha push). Entregas = blocos de código completos para colar.
+- **Fluxo (atual, via Cursor Cloud Agent):** o agente trabalha em branch `cursor/<descricao>-990c`, commita e dá push direto, e abre PR para revisão (base `revisao-1`). O merge continua sob controle do OCENERGIA. Entregas em bloco de código para colar ainda valem quando a interação for por chat sem push.
 - **Vercel MCP:** team `team_tAL46KvFEoVspik8TYtDhSOT`, project `prj_JpAw2EErfAaAusvGIpDjolj55jTE`.
 - **Idioma:** PT-BR.
 
@@ -98,6 +110,7 @@
 - **Híbrida exige Tensão (V)** no modo customizado.
 - **Híbrida plugada como sub-aba** (Opção 2), não substitui a calculadora antiga — convivem para comparação.
 - **e-mail Locaweb** é a versão correta; Gmail é proibida.
+- **`ESTADO_SESSAO.md` é o arquivo oficial de continuidade** — único, na raiz do repo; não criar duplicatas. Atualizá-lo ao fim de cada sessão (protocolo no topo do arquivo).
 
 ---
 
@@ -110,4 +123,9 @@
 - `8029a39` Update PaginaDemanda.tsx — READY (Tarefa 1: lote + badge)
 - `ef67afd` Update catalogoTrafos.ts — READY (bug quantity→quantidade)
 - `89844501` Update enviarLead.ts — READY (import ResultadoCalculadoraIndustrial)
+
 ---
+
+## 7. LOG DE SESSÕES
+
+- **2026-06-24 (Cursor Cloud Agent):** formalizado o protocolo de continuidade no topo deste arquivo; registrado o novo fluxo de trabalho via Cursor Cloud Agent (branch + push + PR para base `revisao-1`). Sem mudanças de código de produto nesta entrada — apenas governança do `ESTADO_SESSAO.md`.
