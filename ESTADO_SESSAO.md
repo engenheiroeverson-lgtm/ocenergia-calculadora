@@ -1,7 +1,26 @@
 # ESTADO DA SESSÃO — OCENERGIA Calculadora (Plataforma de Engenharia Energética)
 
 > Arquivo de continuidade entre sessões. Mantido atualizado a cada marco.
-> Última atualização: 2026-06-24 (Híbrida FP plugada)
+> Última atualização: 2026-06-24 21:01 UTC (controle da sessão formalizado)
+
+---
+
+## 0. CONTROLE DA SESSÃO ATUAL (fonte para a próxima sessão)
+
+### Atualização — 2026-06-24 21:01 UTC
+- **Andamento:** pedido para formalizar um arquivo de estado da sessão atendido.
+- **Feito:** definido `ESTADO_SESSAO.md` como arquivo oficial de continuidade e adicionado este bloco de controle com resumo operacional.
+- **Próximos passos:** a cada novo marco da sessão, registrar aqui (de forma curta) o que mudou em andamento, entregas, pendências e decisões.
+- **Decisões tomadas:** manter este arquivo como **fonte única** de contexto entre sessões e usar sempre o formato `Andamento / Feito / Próximos passos / Decisões`.
+
+### Modelo padrão para próximas atualizações
+```md
+### Atualização — YYYY-MM-DD HH:MM UTC
+- Andamento:
+- Feito:
+- Próximos passos:
+- Decisões tomadas:
+```
 
 ---
 
