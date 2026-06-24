@@ -31,14 +31,16 @@
 - **Solicitacao desta sessao:** criar/manter um arquivo de estado da sessao para alimentar a proxima conversa.
 
 ### Andamento
-- Arquivo de estado existente localizado na raiz do repositorio e adotado como fonte unica de continuidade.
-- Estrutura sendo padronizada para registrar status, feitos, proximos passos e decisoes de forma consistente.
+- Padronizacao concluida: `ESTADO_SESSAO.md` agora e o arquivo canonico de continuidade entre sessoes.
+- Alteracao commitada e enviada na branch `cursor/session-state-file-3694`.
 
 ### Feito nesta sessao
 - Validado que `ESTADO_SESSAO.md` ja existia e continha contexto tecnico relevante do projeto.
 - Definido que o proprio `ESTADO_SESSAO.md` sera o arquivo canonico, evitando duplicidade.
 - Adicionada uma secao operacional no topo com instrucoes de manutencao e checklist de encerramento.
 - Registrado o resumo desta sessao para que a proxima conversa tenha contexto imediato.
+- Commit criado: `aeb5577` (`docs: padroniza estado da sessao`).
+- Branch publicada no remoto e solicitacao de PR preparada contra `revisao-1`.
 
 ### Proximos passos desta linha de trabalho
 - Continuar atualizando este arquivo a cada mudanca relevante nas proximas sessoes.
