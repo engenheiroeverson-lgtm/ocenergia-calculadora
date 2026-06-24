@@ -1,7 +1,18 @@
 # ESTADO DA SESSÃO — OCENERGIA Calculadora (Plataforma de Engenharia Energética)
 
 > Arquivo de continuidade entre sessões. Mantido atualizado a cada marco.
-> Última atualização: 2026-06-24 (Híbrida FP plugada)
+> **Última atualização:** 2026-06-24 — sessão de formalização do protocolo de continuidade (branch `cursor/estado-sessao-protocolo-continuidade-2d8d`). Nenhuma mudança funcional; apenas consolidação do registro e do protocolo de manutenção (seção 7).
+
+---
+
+## 0. COMO USAR ESTE ARQUIVO (protocolo de continuidade)
+
+Este é o **único arquivo canônico de estado**. Toda nova sessão deve:
+
+1. **Ler este arquivo PRIMEIRO**, antes de qualquer ação.
+2. **Conferir contra a realidade** (rodar `git log --oneline -20` e `git status`; checar produção quando relevante). O arquivo pode estar atrasado em relação ao repo — a verdade é o GitHub.
+3. **Atualizar ao final de cada marco** (entrega READY, decisão de arquitetura, mudança de prioridade). Ver protocolo na seção 7.
+4. **Manter conciso.** O objetivo é alimentar a próxima sessão, não documentar exaustivamente. Detalhes vão no código/commits.
 
 ---
 
@@ -110,4 +121,20 @@
 - `8029a39` Update PaginaDemanda.tsx — READY (Tarefa 1: lote + badge)
 - `ef67afd` Update catalogoTrafos.ts — READY (bug quantity→quantidade)
 - `89844501` Update enviarLead.ts — READY (import ResultadoCalculadoraIndustrial)
+
+---
+
+## 7. PROTOCOLO DE MANUTENÇÃO DESTE ARQUIVO
+
+Atualize ao final de cada sessão (ou ao fechar um marco):
+
+1. **Cabeçalho** — trocar "Última atualização" (data + 1 frase do tema da sessão).
+2. **Seção 3 (Módulos)** — refletir novo estado de cada módulo tocado. Marcar ✅ / ⚠️ / 🚧.
+3. **Seção 4 (Próximos passos)** — remover o que virou pronto, reordenar, adicionar o que surgiu.
+4. **Seção 5 (Decisões)** — adicionar 1 linha por decisão nova de arquitetura/produto. Não reescrever as antigas.
+5. **Seção 6 (Deploys-chave)** — adicionar a entrada do último commit READY no topo. Manter no máximo ~15 entradas (podar as mais antigas).
+6. **Commit em branch própria** com mensagem `docs(estado): <resumo do marco>` e abrir PR. Não misturar update do estado com mudança de código no mesmo commit, salvo quando o update for consequência direta do código entregue.
+
+**Regra de ouro:** se a próxima sessão precisar perguntar "onde estávamos?", este arquivo falhou. Toda informação necessária para retomar trabalho deve caber aqui.
+
 ---
