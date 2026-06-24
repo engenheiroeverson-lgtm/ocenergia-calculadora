@@ -15,11 +15,12 @@ import React, { useState } from 'react';
 import FormularioManual from './FormularioManual';
 import UploadFatura from './UploadFatura';
 import UploadRelatorioMassa from './UploadRelatorioMassa';
+import CalculadoraHibridaFP from './CalculadoraHibridaFP';
 import PaginaDemanda from '../demanda/PaginaDemanda';
 
 type Modulo = 'offgrid' | 'bess' | 'capacitores' | 'ongrid' | 'residencial';
 type Perfil = 'leigo' | 'profissional';
-type AbaEntrada = 'manual' | 'fatura' | 'massa';
+type AbaEntrada = 'manual' | 'fatura' | 'massa' | 'hibrida';
 
 interface ModuloDef {
   id: Modulo;
@@ -155,6 +156,13 @@ export default function TelaPrincipal() {
             >
               Relatório de massa
             </button>
+            <button
+              type="button"
+              style={{ ...styles.aba, ...(abaEntrada === 'hibrida' ? styles.abaAtiva : {}) }}
+              onClick={() => setAbaEntrada('hibrida')}
+            >
+              Híbrida (Trafo / Motor) 🆕
+            </button>
           </div>
         )}
 
@@ -163,6 +171,7 @@ export default function TelaPrincipal() {
           {modulo === 'capacitores' && abaEntrada === 'manual' && <FormularioManual />}
           {modulo === 'capacitores' && abaEntrada === 'fatura' && <UploadFatura />}
           {modulo === 'capacitores' && abaEntrada === 'massa' && <UploadRelatorioMassa />}
+          {modulo === 'capacitores' && abaEntrada === 'hibrida' && <CalculadoraHibridaFP />}
           {modulo === 'bess' && <PaginaDemanda />}
         </div>
       </main>
