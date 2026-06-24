@@ -74,10 +74,10 @@ export const CATALOGO_TRAFOS: ProjektPadraoTrafo[] = [
     tensaoVca: 220,
     potenciaTotalKvar: 21,
     passos: [
-      { potenciaKvar: 1.0, quantity: 1 },
-      { potenciaKvar: 2.5, quantity: 1 },
-      { potenciaKvar: 5.0, quantity: 2 },
-      { potenciaKvar: 7.5, quantity: 1 }
+      { potenciaKvar: 1.0, quantidade: 1 },
+      { potenciaKvar: 2.5, quantidade: 1 },
+      { potenciaKvar: 5.0, quantidade: 2 },
+      { potenciaKvar: 7.5, quantidade: 1 }
     ],
     disjuntorGeral: "Trifásico 100A",
     controlador: "12 Saídas",
