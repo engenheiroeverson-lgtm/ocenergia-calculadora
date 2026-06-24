@@ -47,7 +47,7 @@
 - **Pipeline de sync (NÃO MEXER — está correto):**
   - `seu_script_aneel.py`: escreve em `public/grafias-aneel.json` (env `GRAFIAS_OUTPUT`, padrão correto). Pagina por offset, descobre colunas reais, não usa SQL/q.
   - `.github/workflows/sincroniza-grafias-aneel.yml`: cron seg 06:00 UTC + dispatch manual; `git add public/grafias-aneel.json` + commit/push.
-  - Observação (melhoria opcional): commit do robô usa `[skip ci]` → sync semanal não dispara deploy sozinho; a publicação do JSON novo depende de um deploy de código subsequente. Para auto-publicar a cada sync, remover `[skip ci]` da mensagem de commit no `.yml`. Não urgente.
+  - ✅ RESOLVIDO (2026-06-24): removido `[skip ci]` da mensagem de commit do robô no `.yml`. Agora o commit semanal do bot dispara o deploy da Vercel e auto-publica o JSON novo a cada sync. Sem risco de loop: o workflow só roda por `schedule`/`workflow_dispatch` (não por `push`).
 ---
 
 ### Módulo II — Demanda/BESS ✅ (funil PROVADO)
@@ -78,9 +78,9 @@
 
 ## 4. PRÓXIMOS PASSOS (ordem sugerida)
 
-1. **Validar a Híbrida na tela** (Projeto Padrão 300kVA/380V; Customizado motor CV). Se aprovada, decidir se vira padrão do módulo ou se substitui a calculadora antiga.
-2. Corrigir `grafias-aneel.json` → `public/` + remover `[skip ci]` do workflow.
-3. (Opcional) Configurar env `WHATSAPP_ENGENHARIA_WEBHOOK_URL`.
+1. ~~**Validar a Híbrida na tela**~~ ✅ VALIDADA EM PRODUÇÃO. Decidir se vira padrão do módulo ou se substitui a calculadora antiga (mantida como item de produto, não de engenharia).
+2. ~~Corrigir `grafias-aneel.json` → `public/` + remover `[skip ci]` do workflow.~~ ✅ CONCLUÍDO (JSON já em `public/`; `[skip ci]` removido do `.yml`).
+3. **(PRÓXIMO)** (Opcional) Configurar env `WHATSAPP_ENGENHARIA_WEBHOOK_URL`.
 4. Plugar parser real de PDF de fatura (hoje stub; badge honesto).
 5. Validar parâmetros REN 1.000/2021 (ultrapassagem 5%/2×).
 6. Construir visões Leigo (B2C) módulo a módulo.
