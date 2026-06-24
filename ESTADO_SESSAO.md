@@ -1,7 +1,35 @@
 # ESTADO DA SESSÃO — OCENERGIA Calculadora (Plataforma de Engenharia Energética)
 
 > Arquivo de continuidade entre sessões. Mantido atualizado a cada marco.
-> Última atualização: 2026-06-24 (Híbrida FP plugada)
+> Última atualização: 2026-06-24 21:01 UTC — sessão de continuidade
+
+---
+
+## 0. SESSÃO ATUAL — 2026-06-24 21:01 UTC
+
+### Solicitação recebida
+- Criar/manter um arquivo de estado da sessão para alimentar a próxima sessão.
+- O arquivo deve registrar, de forma concisa: andamento, o que foi feito, próximos passos e decisões tomadas.
+
+### Andamento desta sessão
+- Localizado arquivo existente `ESTADO_SESSAO.md` na raiz do repositório.
+- Decisão: atualizar o arquivo existente em vez de criar um segundo arquivo paralelo, preservando um único ponto de retomada.
+- Branch criada para esta atualização: `cursor/atualiza-estado-sessao-c70e`.
+
+### O que foi feito
+- Atualizado o cabeçalho com timestamp desta sessão.
+- Adicionada esta seção de continuidade para registrar o pedido atual e o estado do trabalho.
+- Atualizado o fluxo de trabalho do projeto para refletir uso de branch/commit/push/PR nesta execução.
+
+### Próximos passos imediatos
+1. Revisar o diff do arquivo.
+2. Commitar e enviar a branch ao remoto.
+3. Criar/atualizar PR desta mudança.
+
+### Decisões tomadas nesta sessão
+- Usar `ESTADO_SESSAO.md` como arquivo oficial de continuidade.
+- Manter o registro em PT-BR, conciso e orientado a retomada operacional.
+- Atualizar este arquivo sempre que houver marco relevante, decisão ou mudança de próximos passos.
 
 ---
 
@@ -11,7 +39,7 @@
 - **Produção:** `ocenergia-calculadora.vercel.app`
 - **Stack:** Vite + React 19 + TypeScript + PWA. **Sem Tailwind** — estilos inline via `styles: Record<string, React.CSSProperties>`.
 - **Build:** `tsc -b && vite build` (strict). Arquivos `api/*.ts` buildados à parte pela Vercel (esbuild), fora do `tsc -b`.
-- **Fluxo:** OCENERGIA commita manual pela UI web do GitHub (Claude NÃO tem push). Entregas = blocos de código completos para colar.
+- **Fluxo:** usar branch dedicada, commit, push e PR para registrar mudanças desta execução. O histórico anterior pode conter entregas manuais pela UI do GitHub.
 - **Vercel MCP:** team `team_tAL46KvFEoVspik8TYtDhSOT`, project `prj_JpAw2EErfAaAusvGIpDjolj55jTE`.
 - **Idioma:** PT-BR.
 
