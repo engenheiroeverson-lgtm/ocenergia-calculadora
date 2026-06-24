@@ -12,7 +12,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { CATALOGO_TRAFOS, type ProjektPadraoTrafo, type ConfigPasso } from '../../data/catalogoTrafos';
-import { calcularBancoCapacitorIndustrial } from '../../core/calculadoraIndustrial';
+import { calcularBancoCapacitorIndustrial } from '../calculadora/calculadoraIndustrial';
 import type {
   DadosNormalizadosFP,
   ResultadoCalculadoraIndustrial,
