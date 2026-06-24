@@ -1,7 +1,7 @@
 # ESTADO DA SESSÃO — OCENERGIA Calculadora (Plataforma de Engenharia Energética)
 
 > Arquivo de continuidade entre sessões. Mantido atualizado a cada marco.
-> Última atualização: 2026-06-24 (Híbrida FP plugada)
+> Última atualização: 2026-06-24 (Híbrida FP validada; sync ANEEL pronto para auto-deploy)
 
 ---
 
@@ -47,7 +47,7 @@
 - **Pipeline de sync (NÃO MEXER — está correto):**
   - `seu_script_aneel.py`: escreve em `public/grafias-aneel.json` (env `GRAFIAS_OUTPUT`, padrão correto). Pagina por offset, descobre colunas reais, não usa SQL/q.
   - `.github/workflows/sincroniza-grafias-aneel.yml`: cron seg 06:00 UTC + dispatch manual; `git add public/grafias-aneel.json` + commit/push.
-  - Observação (melhoria opcional): commit do robô usa `[skip ci]` → sync semanal não dispara deploy sozinho; a publicação do JSON novo depende de um deploy de código subsequente. Para auto-publicar a cada sync, remover `[skip ci]` da mensagem de commit no `.yml`. Não urgente.
+  - Commit do robô SEM `[skip ci]` → o sync semanal passa a disparar deploy sozinho quando `public/grafias-aneel.json` mudar.
 ---
 
 ### Módulo II — Demanda/BESS ✅ (funil PROVADO)
@@ -56,10 +56,10 @@
 - `src/modules/demanda/PaginaDemanda.tsx`: sub-abas "Análise Detalhada (12 meses)" e "Simulador Expresso (1 fatura)". Barra de preenchimento em lote + badge de importação honesto.
 - `src/modules/demanda/SimuladorRapidoBess.tsx`: autônomo (não importa motorDemanda). Premissas via sliders: PCS ×1,20 · Energia ×1,10 · DoD 0,80 · Efic 0,90 (DIFERENTES do motor, de propósito). Trava C-Rate Conservador/Justo. Payback Puro vs Combinado (backup: freq × prejuízo). Degraus: bateria 215 kWh; PCS [300,600,900,1200,1500,1800]. Usa tarifa COM tributos.
 
-### Módulo III — Capacitores / FP ✅ + Híbrida ✅ PLUGADA
+### Módulo III — Capacitores / FP ✅ + Híbrida ✅ PLUGADA + VALIDADA
 - Produção: `FormularioManual.tsx`, `UploadFatura.tsx`, `UploadRelatorioMassa.tsx`, `ResultadoTecnico.tsx`.
 - Motor: `src/modules/calculadora/calculadoraIndustrial.ts` → `calcularBancoCapacitorIndustrial(dados: DadosNormalizadosFP, opcoes?: { fpAlvo?, margemSegurancaPct? }): ResultadoCalculadoraIndustrial`.
-- **`src/modules/ui/CalculadoraHibridaFP.tsx`** — READY e PLUGADA (4ª sub-aba "Híbrida (Trafo / Motor)" em capacitores).
+- **`src/modules/ui/CalculadoraHibridaFP.tsx`** — READY, PLUGADA e VALIDADA (4ª sub-aba "Híbrida (Trafo / Motor)" em capacitores).
   - Modo "Projeto Padrão": casamento exato kVA + tensão em `CATALOGO_TRAFOS` → kit pronto (`isProjetoPadrao: true`).
   - Modo "Customizado" (kVA/CV/HP): converte para kW (CV ×0,7355, HP ×0,7457, kVA ×cosφ) + exige Tensão (V) → chama `calcularBancoCapacitorIndustrial`.
   - Import correto: `from '../calculadora/calculadoraIndustrial'`.
@@ -78,13 +78,11 @@
 
 ## 4. PRÓXIMOS PASSOS (ordem sugerida)
 
-1. **Validar a Híbrida na tela** (Projeto Padrão 300kVA/380V; Customizado motor CV). Se aprovada, decidir se vira padrão do módulo ou se substitui a calculadora antiga.
-2. Corrigir `grafias-aneel.json` → `public/` + remover `[skip ci]` do workflow.
-3. (Opcional) Configurar env `WHATSAPP_ENGENHARIA_WEBHOOK_URL`.
-4. Plugar parser real de PDF de fatura (hoje stub; badge honesto).
-5. Validar parâmetros REN 1.000/2021 (ultrapassagem 5%/2×).
-6. Construir visões Leigo (B2C) módulo a módulo.
-7. Módulos 4 (Solar on-grid Lei 14.300) e 5 (Residencial NBR 5410) — não iniciados.
+1. Plugar parser real de PDF de fatura (hoje stub; badge honesto).
+2. Validar parâmetros REN 1.000/2021 (ultrapassagem 5%/2×).
+3. Construir visões Leigo (B2C) módulo a módulo.
+4. Módulos 4 (Solar on-grid Lei 14.300) e 5 (Residencial NBR 5410) — não iniciados.
+5. (Opcional) Configurar env `WHATSAPP_ENGENHARIA_WEBHOOK_URL`.
 
 ---
 
