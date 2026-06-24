@@ -1,7 +1,9 @@
 # ESTADO DA SESSÃO — OCENERGIA Calculadora (Plataforma de Engenharia Energética)
 
 > Arquivo de continuidade entre sessões. Mantido atualizado a cada marco.
-> Última atualização: 2026-06-24 (Híbrida FP plugada)
+> Última atualização: 2026-06-24 (motorDemanda — ultrapassagem REN 1.000 + Verde refatorado)
+>
+> **Convenção:** este arquivo é o único ponto de verdade entre sessões. A cada commit relevante (deploy READY, decisão de arquitetura, validação ou mudança de rumo), atualizar as seções 3, 4, 5 e 6 antes de encerrar a sessão.
 
 ---
 
@@ -52,7 +54,8 @@
 
 ### Módulo II — Demanda/BESS ✅ (funil PROVADO)
 - `src/utils/motorDemanda.ts`: motor 12 meses. DoD 0,90 / efic 0,88. Assinatura `simularModuloII({ modalidade, cargaCritica, meses, tarifas, capexBessReais?, ... })`. SEM `opcoesCustomizadas`.
-  - ⚠️ Ultrapassagem 5%/2× marcado `VALIDAR` (REN 1.000/2021) antes de uso real.
+  - ✅ **Ultrapassagem refatorada (commit `caa5854`):** gatilho = DAC × (1 + 5%). Acima do gatilho, faturável "normal" = DAC e ultrapassagem = (DAM − DAC) × TUSD × 2. Abaixo do gatilho, faturável = max(DAM, DAC) e ultrapassagem = 0. **Permanece marcado `VALIDAR`** contra a redação literal da REN 1.000/2021 antes do uso comercial.
+  - ✅ **Verde corrigido:** `calcularFaturaMensal` agora usa max(Ponta, ForaPonta) tanto para medida quanto para contratada (Verde tem demanda única). `simularFaturaOtimizada` segue a mesma regra para `dcOtimaForaPonta` quando modalidade = Verde.
 - `src/modules/demanda/PaginaDemanda.tsx`: sub-abas "Análise Detalhada (12 meses)" e "Simulador Expresso (1 fatura)". Barra de preenchimento em lote + badge de importação honesto.
 - `src/modules/demanda/SimuladorRapidoBess.tsx`: autônomo (não importa motorDemanda). Premissas via sliders: PCS ×1,20 · Energia ×1,10 · DoD 0,80 · Efic 0,90 (DIFERENTES do motor, de propósito). Trava C-Rate Conservador/Justo. Payback Puro vs Combinado (backup: freq × prejuízo). Degraus: bateria 215 kWh; PCS [300,600,900,1200,1500,1800]. Usa tarifa COM tributos.
 
@@ -79,12 +82,13 @@
 ## 4. PRÓXIMOS PASSOS (ordem sugerida)
 
 1. **Validar a Híbrida na tela** (Projeto Padrão 300kVA/380V; Customizado motor CV). Se aprovada, decidir se vira padrão do módulo ou se substitui a calculadora antiga.
-2. Corrigir `grafias-aneel.json` → `public/` + remover `[skip ci]` do workflow.
-3. (Opcional) Configurar env `WHATSAPP_ENGENHARIA_WEBHOOK_URL`.
-4. Plugar parser real de PDF de fatura (hoje stub; badge honesto).
-5. Validar parâmetros REN 1.000/2021 (ultrapassagem 5%/2×).
-6. Construir visões Leigo (B2C) módulo a módulo.
-7. Módulos 4 (Solar on-grid Lei 14.300) e 5 (Residencial NBR 5410) — não iniciados.
+2. **Validar nova lógica de ultrapassagem em produção** com 1–2 faturas reais (Azul e Verde) — confirmar valores de fatura antes/depois do refactor `caa5854`.
+3. (Opcional) Remover `[skip ci]` do workflow `sincroniza-grafias-aneel.yml` para auto-publicar JSON novo a cada sync.
+4. (Opcional) Configurar env `WHATSAPP_ENGENHARIA_WEBHOOK_URL`.
+5. Plugar parser real de PDF de fatura (hoje stub; badge honesto).
+6. Confirmar contra texto literal da REN 1.000/2021 os parâmetros `toleranciaUltrapassagem` (5%) e `multiplicadorUltrapassagem` (2×).
+7. Construir visões Leigo (B2C) módulo a módulo.
+8. Módulos 4 (Solar on-grid Lei 14.300) e 5 (Residencial NBR 5410) — não iniciados.
 
 ---
 
@@ -98,11 +102,14 @@
 - **Híbrida exige Tensão (V)** no modo customizado.
 - **Híbrida plugada como sub-aba** (Opção 2), não substitui a calculadora antiga — convivem para comparação.
 - **e-mail Locaweb** é a versão correta; Gmail é proibida.
+- **Ultrapassagem (commit `caa5854`):** quando há ultrapassagem (>5%), a parcela "normal" volta a ser a DAC (não o max) e o excedente total (DAM − DAC) entra com multiplicador 2× — modelo mais conservador para o cliente e alinhado à leitura comum da REN. Ainda marcado `VALIDAR`.
+- **Verde modela demanda única:** consolidamos max(Ponta, ForaPonta) tanto na fatura mensal quanto no otimizador, evitando subdimensionar DC ótima quando o pico ocorre no posto de ponta.
 
 ---
 
 ## 6. HISTÓRICO DE DEPLOYS-CHAVE (READY)
 
+- `caa5854` Update motorDemanda.ts — refactor ultrapassagem REN 1.000/2021 + Verde max(Ponta,ForaPonta) na fatura e no otimizador
 - `20fd329` Update TelaPrincipal.tsx — **READY** (Híbrida plugada como 4ª sub-aba)
 - `0ee1ca3` Update CalculadoraHibridaFP.tsx — READY (Tarefa 3, import corrigido)
 - `798ae71` Update PaginaDemanda.tsx — READY (sub-abas Nível 3)
