@@ -138,28 +138,43 @@ export interface ResultadoModuloII {
 }
 
 // ── Núcleo: custo de demanda de um posto ─────────────────────────────────────
-// MODELO ADOTADO (validar): dentro da tolerância fatura-se o maior entre medida
-// e contratada; acima da tolerância, o excedente (medida − contratada) é faturado
-// à TUSD × multiplicador, e a parcela "normal" volta a ser a contratada.
+// MODELO ADOTADO (validar):
+// Se a demanda medida (DAM) exceder a demanda contratada (DAC) em mais de 5% (gatilho),
+// então:
+// 1. A demanda faturável "normal" é a DAC.
+// 2. A demanda de ultrapassagem é (DAM - DAC).
+// 3. O custo da ultrapassagem é (DAM - DAC) * TUSD * 2.
+// Caso contrário (DAM <= DAC * 1.05):
+// 1. A demanda faturável "normal" é o maior entre DAM e DAC.
+// 2. Não há custo de ultrapassagem.
 function calcularCustoDemanda(
   demandaMedidaKw: number,
   demandaContratadaKw: number,
   tusdDemanda: number,
   reg: typeof PARAMETROS_REGULATORIOS,
 ): CustoDemandaPosto {
-  const limite = demandaContratadaKw * (1 + reg.toleranciaUltrapassagem);
+  const limiteGatilhoUltrapassagem = demandaContratadaKw * (1 + reg.toleranciaUltrapassagem);
   let demandaFaturavelKw: number;
   let demandaUltrapassagemKw = 0;
+  let custoUltrapassagem = 0;
 
-  if (demandaMedidaKw > limite) {
+  if (demandaMedidaKw > limiteGatilhoUltrapassagem) {
+    // Houve ultrapassagem:
+    // A demanda faturável "normal" é a contratada.
     demandaFaturavelKw = demandaContratadaKw;
+    // A demanda de ultrapassagem é o excedente total.
     demandaUltrapassagemKw = demandaMedidaKw - demandaContratadaKw;
+    // O custo da ultrapassagem é o excedente total * TUSD * multiplicador.
+    custoUltrapassagem = demandaUltrapassagemKw * tusdDemanda * reg.multiplicadorUltrapassagem;
   } else {
+    // Não houve ultrapassagem:
+    // A demanda faturável é o maior entre medida e contratada.
     demandaFaturavelKw = Math.max(demandaMedidaKw, demandaContratadaKw);
+    demandaUltrapassagemKw = 0;
+    custoUltrapassagem = 0;
   }
 
   const custoNormal = demandaFaturavelKw * tusdDemanda;
-  const custoUltrapassagem = demandaUltrapassagemKw * tusdDemanda * reg.multiplicadorUltrapassagem;
   return {
     demandaFaturavelKw,
     demandaUltrapassagemKw,
@@ -196,8 +211,13 @@ function calcularFaturaMensal(
     );
   } else {
     // VERDE: demanda única faturada pela tarifa de fora-ponta.
+    // A demanda contratada de ponta é ignorada para fins de faturamento,
+    // mas a demanda medida de ponta ainda pode ser relevante para dimensionamento do BESS.
     demandaForaPonta = calcularCustoDemanda(
-      mes.demandaMedidaForaPontaKw, mes.demandaContratadaForaPontaKw, t.tusdDemandaForaPonta, reg,
+      Math.max(mes.demandaMedidaPontaKw, mes.demandaMedidaForaPontaKw), // Demanda medida única para Verde
+      Math.max(mes.demandaContratadaPontaKw, mes.demandaContratadaForaPontaKw), // Demanda contratada única para Verde
+      t.tusdDemandaForaPonta,
+      reg,
     );
   }
 
@@ -319,8 +339,15 @@ function simularFaturaOtimizada(
   bess: typeof PARAMETROS_BESS,
 ): { faturaAnual: number; dcOtimaPonta: number; dcOtimaForaPonta: number } {
   const dcOtimaPonta = 0; // ponta coberta pelo BESS
+  // A demanda contratada ótima de fora-ponta deve ser o maior pico medido de fora-ponta
+  // ou, no caso de Verde, o maior pico total (Ponta ou Fora-Ponta)
   const dcOtimaForaPonta = Math.ceil(
-    Math.max(...meses.map((m) => m.demandaMedidaForaPontaKw || 0), 0),
+    Math.max(
+      ...meses.map((m) =>
+        modalidade === 'Azul' ? m.demandaMedidaForaPontaKw : Math.max(m.demandaMedidaPontaKw, m.demandaMedidaForaPontaKw)
+      ),
+      0
+    )
   );
 
   let faturaAnual = 0;
@@ -331,7 +358,7 @@ function simularFaturaOtimizada(
       ...m,
       consumoPontaKwh: 0,
       consumoForaPontaKwh: m.consumoForaPontaKwh + consumoPontaMigrado,
-      demandaMedidaPontaKw: 0,
+      demandaMedidaPontaKw: 0, // BESS zera a demanda medida de ponta na rede
       demandaContratadaPontaKw: dcOtimaPonta,
       // a demanda medida de fora-ponta permanece; contratada ajustada ao pico
       demandaContratadaForaPontaKw: dcOtimaForaPonta,
