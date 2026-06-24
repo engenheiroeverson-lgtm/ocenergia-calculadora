@@ -1,7 +1,35 @@
 # ESTADO DA SESSÃO — OCENERGIA Calculadora (Plataforma de Engenharia Energética)
 
-> Arquivo de continuidade entre sessões. Mantido atualizado a cada marco.
-> Última atualização: 2026-06-24 (Híbrida FP plugada)
+> Arquivo canônico de continuidade entre sessões. Atualizar ao iniciar, ao fechar marcos importantes e ao encerrar cada sessão.
+> Última atualização: 2026-06-24 21:02 UTC (handoff estruturado e pronto para continuidade)
+
+---
+
+## 0. SESSÃO ATUAL / HANDOFF RÁPIDO
+
+### Objetivo desta sessão
+- Consolidar um arquivo persistente de estado da sessão para servir como memória operacional da próxima conversa.
+
+### Andamento
+- Concluído nesta sessão: o `ESTADO_SESSAO.md` foi consolidado como handoff persistente para a próxima conversa.
+
+### Feito nesta sessão
+- Confirmado que o repositório já possuía `ESTADO_SESSAO.md`.
+- Decidido reutilizar esse arquivo como fonte única de contexto, em vez de criar um segundo artefato concorrente.
+- Criada a branch de trabalho `cursor/session-state-a2d8`.
+- Adicionada a seção **0. SESSÃO ATUAL / HANDOFF RÁPIDO** para registrar objetivo, andamento, feitos, próximos passos e decisões.
+- Definido que futuras sessões devem atualizar esta seção no início e no encerramento do trabalho.
+
+### Próximos passos imediatos
+- Na próxima sessão, começar por esta seção e substituir o conteúdo pelo estado corrente do novo trabalho.
+- Manter as seções temáticas abaixo sincronizadas sempre que houver mudança material de arquitetura, fluxo ou operação.
+
+### Decisões desta sessão
+- `ESTADO_SESSAO.md` passa a ser o arquivo oficial de memória entre sessões.
+- Devemos manter neste arquivo apenas contexto útil para continuidade: andamento, entregas, pendências e decisões; evitar diário verboso.
+
+### Instrução para a próxima sessão
+- Ler primeiro a seção **0. SESSÃO ATUAL / HANDOFF RÁPIDO** e depois consultar as seções temáticas abaixo conforme a tarefa.
 
 ---
 
@@ -11,7 +39,7 @@
 - **Produção:** `ocenergia-calculadora.vercel.app`
 - **Stack:** Vite + React 19 + TypeScript + PWA. **Sem Tailwind** — estilos inline via `styles: Record<string, React.CSSProperties>`.
 - **Build:** `tsc -b && vite build` (strict). Arquivos `api/*.ts` buildados à parte pela Vercel (esbuild), fora do `tsc -b`.
-- **Fluxo:** OCENERGIA commita manual pela UI web do GitHub (Claude NÃO tem push). Entregas = blocos de código completos para colar.
+- **Fluxo:** manter o handoff neste arquivo e versionar mudanças por branch/commit/PR quando a sessão estiver em ambiente com acesso a git remoto.
 - **Vercel MCP:** team `team_tAL46KvFEoVspik8TYtDhSOT`, project `prj_JpAw2EErfAaAusvGIpDjolj55jTE`.
 - **Idioma:** PT-BR.
 
