@@ -1,7 +1,7 @@
 # ESTADO DA SESSÃO — OCENERGIA Calculadora (Plataforma de Engenharia Energética)
 
 > Arquivo de continuidade entre sessões. Mantido atualizado a cada marco.
-> Última atualização: 2026-06-24 (Híbrida FP plugada)
+> Última atualização: 2026-06-24 (workflow grafias ANEEL publica JSON sincronizado)
 
 ---
 
@@ -47,7 +47,7 @@
 - **Pipeline de sync (NÃO MEXER — está correto):**
   - `seu_script_aneel.py`: escreve em `public/grafias-aneel.json` (env `GRAFIAS_OUTPUT`, padrão correto). Pagina por offset, descobre colunas reais, não usa SQL/q.
   - `.github/workflows/sincroniza-grafias-aneel.yml`: cron seg 06:00 UTC + dispatch manual; `git add public/grafias-aneel.json` + commit/push.
-  - Observação (melhoria opcional): commit do robô usa `[skip ci]` → sync semanal não dispara deploy sozinho; a publicação do JSON novo depende de um deploy de código subsequente. Para auto-publicar a cada sync, remover `[skip ci]` da mensagem de commit no `.yml`. Não urgente.
+  - Commit do robô sem `[skip ci]` → sync semanal pode disparar deploy quando `public/grafias-aneel.json` mudar.
 ---
 
 ### Módulo II — Demanda/BESS ✅ (funil PROVADO)
@@ -78,13 +78,12 @@
 
 ## 4. PRÓXIMOS PASSOS (ordem sugerida)
 
-1. **Validar a Híbrida na tela** (Projeto Padrão 300kVA/380V; Customizado motor CV). Se aprovada, decidir se vira padrão do módulo ou se substitui a calculadora antiga.
-2. Corrigir `grafias-aneel.json` → `public/` + remover `[skip ci]` do workflow.
-3. (Opcional) Configurar env `WHATSAPP_ENGENHARIA_WEBHOOK_URL`.
-4. Plugar parser real de PDF de fatura (hoje stub; badge honesto).
-5. Validar parâmetros REN 1.000/2021 (ultrapassagem 5%/2×).
-6. Construir visões Leigo (B2C) módulo a módulo.
-7. Módulos 4 (Solar on-grid Lei 14.300) e 5 (Residencial NBR 5410) — não iniciados.
+1. Decidir se a Híbrida FP vira padrão do módulo ou se substitui a calculadora antiga.
+2. (Opcional) Configurar env `WHATSAPP_ENGENHARIA_WEBHOOK_URL`.
+3. Plugar parser real de PDF de fatura (hoje stub; badge honesto).
+4. Validar parâmetros REN 1.000/2021 (ultrapassagem 5%/2×).
+5. Construir visões Leigo (B2C) módulo a módulo.
+6. Módulos 4 (Solar on-grid Lei 14.300) e 5 (Residencial NBR 5410) — não iniciados.
 
 ---
 

@@ -49,6 +49,6 @@ jobs:
           if git diff --staged --quiet; then
             echo "Sem mudanças nas grafias — nada a commitar."
           else
-            git commit -m "chore: sincroniza grafias ANEEL [skip ci]"
+            git commit -m "chore: sincroniza grafias ANEEL"
             git push
           fi
