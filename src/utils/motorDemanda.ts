@@ -9,20 +9,25 @@
 // topologia (crítico vs. econômico) e o hardware WEG, e (5) simula a fatura
 // otimizada, economia e payback.
 //
-// ⚠️ PARÂMETROS REGULATÓRIOS NÃO VERIFICADOS NA FONTE PRIMÁRIA NESTA VERSÃO.
-//    Os valores de tolerância e multiplicador de ultrapassagem vêm do briefing
-//    do projeto; CONFIRMAR contra o texto vigente da REN nº 1.000/2021 antes de
-//    usar com faturamento real. Estão isolados em PARAMETROS_REGULATORIOS.
+// ✅ PARÂMETROS REGULATÓRIOS VERIFICADOS NA FONTE PRIMÁRIA (REN nº 1.000/2021).
+//    Art. 301 (Seção VII — Da Ultrapassagem), redação consolidada c/ REN 1.059/2023:
+//      C_ULTRAPASSAGEM(p) = [ DAM(p) − DAC(p) ] × 2 × VRDULT(p)
+//    Gatilhos de tolerância (caput): 1% injeção/exportador/importador · 5% consumo
+//    do consumidor · 10% outra distribuidora. Aqui tratamos CONSUMO → 5%.
+//    Os 5% são GATILHO (liga/desliga a cobrança), não franquia dedutível: a base
+//    do excedente é (DAM − DAC), sobre a contratada CHEIA. Multiplicador = 2×.
+//    Validado contra o PDF oficial da ANEEL em 2026-06-24.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type Modalidade = 'Azul' | 'Verde';
 
-// ── Parâmetros regulatórios (VALIDAR) ───────────────────────────────────────
+// ── Parâmetros regulatórios (art. 301, REN 1.000/2021) ───────────────────────
 export const PARAMETROS_REGULATORIOS = {
-  // Tolerância sobre a demanda contratada antes de incidir ultrapassagem.
-  toleranciaUltrapassagem: 0.05, // 5% — conforme briefing; CONFIRMAR na REN 1.000/2021
-  // Multiplicador aplicado à TUSD de demanda na parcela de ultrapassagem.
-  multiplicadorUltrapassagem: 2, // 2× — conforme briefing; CONFIRMAR na REN 1.000/2021
+  // Tolerância (gatilho) sobre a demanda contratada de CONSUMO antes de incidir
+  // ultrapassagem. REN 1.000/2021, art. 301, II → 5%. (Injeção/geração = 1%.)
+  toleranciaUltrapassagem: 0.05, // ✅ art. 301, II (consumo)
+  // Multiplicador da fórmula do art. 301, §1º: [DAM − DAC] × 2 × VRDULT.
+  multiplicadorUltrapassagem: 2, // ✅ art. 301, §1º
 };
 
 // ── Parâmetros físicos/operacionais do BESS (ajustáveis) ─────────────────────
@@ -138,9 +143,11 @@ export interface ResultadoModuloII {
 }
 
 // ── Núcleo: custo de demanda de um posto ─────────────────────────────────────
-// MODELO ADOTADO (validar): dentro da tolerância fatura-se o maior entre medida
-// e contratada; acima da tolerância, o excedente (medida − contratada) é faturado
-// à TUSD × multiplicador, e a parcela "normal" volta a ser a contratada.
+// MODELO (art. 301, REN 1.000/2021): se DAM ≤ (1 + tolerância)·DAC, não há
+// ultrapassagem e fatura-se o maior entre medida e contratada. Se DAM exceder o
+// gatilho, o excedente faturado é (DAM − DAC) — contratada CHEIA, NÃO descontando
+// a tolerância — à tarifa de demanda × multiplicador (2×). A parcela "normal"
+// volta a ser a contratada (DAC).
 function calcularCustoDemanda(
   demandaMedidaKw: number,
   demandaContratadaKw: number,
@@ -392,7 +399,8 @@ export function simularModuloII(entrada: EntradaModuloII): ResultadoModuloII {
   const paybackAnos = capex != null && economiaAnual > 0 ? capex / economiaAnual : null;
 
   avisos.push(
-    'Parâmetros de ultrapassagem (5% / 2×) provenientes do briefing — CONFIRMAR contra a REN 1.000/2021 vigente.',
+    'Ultrapassagem conforme REN 1.000/2021, art. 301: gatilho 5% (consumo) e multiplicador 2× sobre (DAM − DAC). ' +
+    'O VRDULT oficial é a tarifa de demanda do subgrupo; este motor usa a TUSD de demanda informada como aproximação do VRDULT.',
   );
 
   return {
