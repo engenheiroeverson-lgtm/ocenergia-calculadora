@@ -111,3 +111,9 @@ Fonte: PDF oficial ANEEL (ren20211000.pdf), Seção VII, Art. 301, redação con
 
 - `20fd329` TelaPrincipal.tsx (Híbrida plugada) · `0ee1ca3` CalculadoraHibridaFP.tsx · `798ae71` PaginaDemanda.tsx (sub-abas) · `77c40fd` SimuladorRapidoBess.tsx · `8029a39` PaginaDemanda.tsx (lote+badge) · `ef67afd` catalogoTrafos.ts · `89844501` enviarLead.ts
 - (próximo) motorDemanda.ts — comentários/avisos REN art. 301 validados
+---
+- ## NOTA DE PROCESSO (2026-06-25)
+- Houve trabalho paralelo de outro agente (Cursor) na branch `revisao-1` e em branches `cursor/*`, mexendo nos MESMOS arquivos (motorDemanda.ts, enviarLead.ts, SimuladorRapidoBess.tsx, parserFatura.ts, enviar-email.ts). Vários deploys ERROR. NENHUM foi a produção (todos target:null).
+- DECISÃO: abandonar a `revisao-1`. NÃO mesclar na main sem revisão arquivo a arquivo (o motorDemanda.ts refatorado dela NÃO passou pela validação do art. 301 e dava ERROR).
+- REGRA: um assistente por arquivo. Frentes paralelas só com escopo não-sobreposto e merge revisado.
+- Itens que estavam só na revisao-1 e voltam a ficar pendentes na main: remover [skip ci] do workflow; publicar grafias de 24/06 (319.093 reg). Produção hoje serve a versão de 22/06 (318.617 reg) — EMT presente, sem impacto para MT.
