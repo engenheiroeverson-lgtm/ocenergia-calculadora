@@ -1,7 +1,7 @@
 # ESTADO DA SESSÃO — OCENERGIA Calculadora (Plataforma de Engenharia Energética)
 
 > Arquivo de continuidade entre sessões. Mantido atualizado a cada marco.
-> Última atualização: 2026-06-24 (Híbrida FP plugada)
+> Última atualização: 2026-06-24 (REN 1.000/2021 art. 301 VALIDADA na fonte primária)
 
 ---
 
@@ -10,8 +10,8 @@
 - **Repo:** `github.com/engenheiroeverson-lgtm/ocenergia-calculadora` (público)
 - **Produção:** `ocenergia-calculadora.vercel.app`
 - **Stack:** Vite + React 19 + TypeScript + PWA. **Sem Tailwind** — estilos inline via `styles: Record<string, React.CSSProperties>`.
-- **Build:** `tsc -b && vite build` (strict). Arquivos `api/*.ts` buildados à parte pela Vercel (esbuild), fora do `tsc -b`.
-- **Fluxo:** OCENERGIA commita manual pela UI web do GitHub (Claude NÃO tem push). Entregas = blocos de código completos para colar.
+- **Build:** `tsc -b && vite build` (strict). `api/*.ts` buildados à parte pela Vercel (esbuild).
+- **Fluxo:** OCENERGIA commita manual pela UI web do GitHub (Claude NÃO tem push). Entregas = blocos completos para colar.
 - **Vercel MCP:** team `team_tAL46KvFEoVspik8TYtDhSOT`, project `prj_JpAw2EErfAaAusvGIpDjolj55jTE`.
 - **Idioma:** PT-BR.
 
@@ -21,13 +21,13 @@
 
 ---
 
-## 2. PRINCÍPIOS DE TRABALHO (regras que nos salvaram)
+## 2. PRINCÍPIOS DE TRABALHO
 
 1. **Uma entrega por vez.** Um arquivo, deploy, confirmar READY na Vercel, só então o próximo.
-2. **Nunca chutar caminho/assinatura.** Confirmar caminho real de imports e interface de tipos ANTES de escrever. Erros recorrentes: `TS2304` (import faltando), `TS2741` (campo obrigatório ausente), `TS2307` (módulo não encontrado).
-3. **Verdade acima de utilidade.** Sinalizar incerteza; não inventar APIs/campos; não afirmar na UI o que não é real (badge de PDF é honesto).
+2. **Nunca chutar caminho/assinatura.** Confirmar caminho real de imports e interface de tipos ANTES de escrever. Erros recorrentes: `TS2304`, `TS2741`, `TS2307`.
+3. **Verdade acima de utilidade.** Sinalizar incerteza; não inventar APIs/campos/fontes; badge honesto p/ stubs. Regra regulatória se confirma na fonte primária, não por maioria de fontes secundárias.
 4. **Componentes isolados (Opção A).** Criar novo, validar READY, só depois plugar.
-5. **Snapshot `/mnt/project/` NÃO confiável.** GitHub é a fonte de verdade. Pedir arquivo atual antes de editar.
+5. **Snapshot `/mnt/project/` NÃO confiável.** GitHub é a fonte de verdade.
 
 ---
 
@@ -35,79 +35,79 @@
 
 ### Navegação (3 níveis) — `src/modules/ui/TelaPrincipal.tsx` ✅
 - `App.tsx` → `<TelaPrincipal />` (sem router).
-- Nível 1 (Módulo): `offgrid`(em breve) · `bess`(ativo) · `capacitores`(ativo) · `ongrid`(em breve) · `residencial`(em breve).
-- Nível 2 (Perfil): toggle `leigo`/`profissional`. Visões Leigo NÃO existem ainda → exibe aviso honesto, mantém versão técnica.
-- Nível 3 (Entrada): sub-abas. Capacitores tem 4: `manual`, `fatura`, `massa`, `hibrida`. BESS renderiza `PaginaDemanda` (que tem suas próprias sub-abas internas).
+- N1 Módulo: `offgrid`(em breve)·`bess`(ativo)·`capacitores`(ativo)·`ongrid`(em breve)·`residencial`(em breve).
+- N2 Perfil: toggle `leigo`/`profissional` (visões Leigo não existem ainda → aviso honesto, mantém técnica).
+- N3 Entrada: Capacitores tem 4 sub-abas (`manual`, `fatura`, `massa`, `hibrida`); BESS renderiza `PaginaDemanda` (sub-abas próprias).
 
 ### Módulo I — Núcleo Tarifário (ANEEL) ✅
-- `api/aneel-tarifas.ts`: `datastore_search` (offset). `datastore_search_sql` e param `q` QUEBRADOS — não usar.
-- Recurso ANEEL: `fcf2906c-7c32-4b9b-a637-054e7a5234f4`, WIDE. Energia MWh → ÷1000 (R$/kWh) só no backend; demanda em kW intocada.
-- `SeletorTarifaAneel.tsx`: default EMT, fallback se grafias indisponível.
-- **grafias-aneel.json:** ✅ ESTÁVEL — serve 200 OK em produção (gerado 2026-06-22, 318.617 registros; lista completa de distribuidoras incl. EMT, subgrupos, modalidades, postos).
-- **Pipeline de sync (NÃO MEXER — está correto):**
-  - `seu_script_aneel.py`: escreve em `public/grafias-aneel.json` (env `GRAFIAS_OUTPUT`, padrão correto). Pagina por offset, descobre colunas reais, não usa SQL/q.
-  - `.github/workflows/sincroniza-grafias-aneel.yml`: cron seg 06:00 UTC + dispatch manual; `git add public/grafias-aneel.json` + commit/push.
-  - Observação (melhoria opcional): commit do robô usa `[skip ci]` → sync semanal não dispara deploy sozinho; a publicação do JSON novo depende de um deploy de código subsequente. Para auto-publicar a cada sync, remover `[skip ci]` da mensagem de commit no `.yml`. Não urgente.
----
+- `api/aneel-tarifas.ts`: `datastore_search` (offset). `datastore_search_sql` e `q` QUEBRADOS.
+- Recurso `fcf2906c-7c32-4b9b-a637-054e7a5234f4`, WIDE. Energia MWh → ÷1000 (R$/kWh) só backend; demanda kW intocada.
+- **grafias-aneel.json:** ✅ ESTÁVEL (200 OK, 318.617 registros, EMT presente). Pipeline (`seu_script_aneel.py` escreve em `public/` + workflow) CORRETO — NÃO MEXER. Único ajuste opcional: remover `[skip ci]` do `.yml` p/ auto-publicar a cada sync.
 
 ### Módulo II — Demanda/BESS ✅ (funil PROVADO)
-- `src/utils/motorDemanda.ts`: motor 12 meses. DoD 0,90 / efic 0,88. Assinatura `simularModuloII({ modalidade, cargaCritica, meses, tarifas, capexBessReais?, ... })`. SEM `opcoesCustomizadas`.
-  - ⚠️ Ultrapassagem 5%/2× marcado `VALIDAR` (REN 1.000/2021) antes de uso real.
-- `src/modules/demanda/PaginaDemanda.tsx`: sub-abas "Análise Detalhada (12 meses)" e "Simulador Expresso (1 fatura)". Barra de preenchimento em lote + badge de importação honesto.
-- `src/modules/demanda/SimuladorRapidoBess.tsx`: autônomo (não importa motorDemanda). Premissas via sliders: PCS ×1,20 · Energia ×1,10 · DoD 0,80 · Efic 0,90 (DIFERENTES do motor, de propósito). Trava C-Rate Conservador/Justo. Payback Puro vs Combinado (backup: freq × prejuízo). Degraus: bateria 215 kWh; PCS [300,600,900,1200,1500,1800]. Usa tarifa COM tributos.
+- `src/utils/motorDemanda.ts`: motor 12 meses. DoD 0,90 / efic 0,88. `simularModuloII({ modalidade, cargaCritica, meses, tarifas, capexBessReais?, ... })`. SEM `opcoesCustomizadas`.
+  - ✅ **Ultrapassagem VALIDADA (art. 301)** — ver seção 4.
+- `src/modules/demanda/PaginaDemanda.tsx`: sub-abas "Análise Detalhada (12 meses)" + "Simulador Expresso (1 fatura)". Barra de lote + badge de importação honesto.
+- `src/modules/demanda/SimuladorRapidoBess.tsx`: autônomo. Sliders PCS ×1,20 / Energia ×1,10 / DoD 0,80 / Efic 0,90 (DIFERENTES do motor, de propósito). Trava C-Rate Conservador/Justo. Payback Puro vs Combinado. Bateria 215 kWh; PCS [300..1800]. Tarifa COM tributos.
 
 ### Módulo III — Capacitores / FP ✅ + Híbrida ✅ PLUGADA
-- Produção: `FormularioManual.tsx`, `UploadFatura.tsx`, `UploadRelatorioMassa.tsx`, `ResultadoTecnico.tsx`.
-- Motor: `src/modules/calculadora/calculadoraIndustrial.ts` → `calcularBancoCapacitorIndustrial(dados: DadosNormalizadosFP, opcoes?: { fpAlvo?, margemSegurancaPct? }): ResultadoCalculadoraIndustrial`.
-- **`src/modules/ui/CalculadoraHibridaFP.tsx`** — READY e PLUGADA (4ª sub-aba "Híbrida (Trafo / Motor)" em capacitores).
-  - Modo "Projeto Padrão": casamento exato kVA + tensão em `CATALOGO_TRAFOS` → kit pronto (`isProjetoPadrao: true`).
-  - Modo "Customizado" (kVA/CV/HP): converte para kW (CV ×0,7355, HP ×0,7457, kVA ×cosφ) + exige Tensão (V) → chama `calcularBancoCapacitorIndustrial`.
-  - Import correto: `from '../calculadora/calculadoraIndustrial'`.
-  - Conceito explícito na UI: "Kit de Engenharia" (catálogo, ~60% kVA) ≠ "Cálculo Teórico" (fórmula).
+- Produção: `FormularioManual`, `UploadFatura`, `UploadRelatorioMassa`, `ResultadoTecnico`.
+- Motor: `src/modules/calculadora/calculadoraIndustrial.ts` → `calcularBancoCapacitorIndustrial(dados: DadosNormalizadosFP, opcoes?)`.
+- `src/modules/ui/CalculadoraHibridaFP.tsx`: 4ª sub-aba. Projeto Padrão (catálogo) + Customizado (kVA/CV/HP → kW, reusa o motor). Import `from '../calculadora/calculadoraIndustrial'`. Validada na tela.
 
-### Catálogo de trafos
-- `src/data/catalogoTrafos.ts`: `CATALOGO_TRAFOS`, interfaces `ProjektPadraoTrafo`, `ConfigPasso` (`potenciaKvar`, `quantidade`). ~34 entradas, 15→1500 kVA × 220/380/440V. Bug `quantity`→`quantidade` (trafo_30_220v) corrigido.
+### Catálogo trafos — `src/data/catalogoTrafos.ts` ✅
+- `CATALOGO_TRAFOS`, `ProjektPadraoTrafo`, `ConfigPasso` (`potenciaKvar`,`quantidade`). ~34 entradas. Bug `quantity`→`quantidade` corrigido.
 
 ### Funil de leads ✅ PROVADO
-- `src/lib/enviarLead.ts`: `enviarLead(resultado | null, lead, extras)`. 1ª linha OBRIGATÓRIA: `import type { ResultadoCalculadoraIndustrial } from '../types/types';`. `extras.bess: ResumoBessLead` inclui `demandaContratadaOtimaKw`.
-- `api/enviar-email.ts`: SMTP **Locaweb** (`email-ssl.com.br:465`, envs `SMTP_USER`/`SMTP_PASS`). TO comercial@ocenergia.com.br, BCC comercial@ocenergiasolar.com.br. Árvore `ehBess = body.bess != null` (pula calcularBancoCapacitor, evita NaN). Texto puro. ⚠️ NÃO usar versão Gmail/`SMTP_HOST`/`COMERCIAL_EMAIL`.
-- **PROVA (log 24/06 11:49):** `Fluxo: BESS/Demanda (Módulo II)` + `email: 'sent'` + Locaweb autenticado.
-- WhatsApp `skipped` (env `WHATSAPP_ENGENHARIA_WEBHOOK_URL` não configurada).
+- `src/lib/enviarLead.ts`: `enviarLead(resultado | null, lead, extras)`. 1ª linha: `import type { ResultadoCalculadoraIndustrial } from '../types/types';`.
+- `api/enviar-email.ts`: SMTP Locaweb (`email-ssl.com.br:465`). `ehBess = body.bess != null` (pula calcularBancoCapacitor, evita NaN). NÃO usar versão Gmail. Log 24/06: `email:'sent'`.
 
 ---
 
-## 4. PRÓXIMOS PASSOS (ordem sugerida)
+## 4. REN 1.000/2021 — Art. 301 (Ultrapassagem) — ✅ VALIDADO NA FONTE PRIMÁRIA
+Fonte: PDF oficial ANEEL (ren20211000.pdf), Seção VII, Art. 301, redação consolidada c/ REN 1.059/2023.
 
-1. **Validar a Híbrida na tela** (Projeto Padrão 300kVA/380V; Customizado motor CV). Se aprovada, decidir se vira padrão do módulo ou se substitui a calculadora antiga.
-2. Corrigir `grafias-aneel.json` → `public/` + remover `[skip ci]` do workflow.
-3. (Opcional) Configurar env `WHATSAPP_ENGENHARIA_WEBHOOK_URL`.
-4. Plugar parser real de PDF de fatura (hoje stub; badge honesto).
-5. Validar parâmetros REN 1.000/2021 (ultrapassagem 5%/2×).
-6. Construir visões Leigo (B2C) módulo a módulo.
-7. Módulos 4 (Solar on-grid Lei 14.300) e 5 (Residencial NBR 5410) — não iniciados.
+**FÓRMULA OFICIAL (§1º):** `C_ULTRAPASSAGEM(p) = [ DAM(p) − DAC(p) ] × 2 × VRDULT(p)`
+- DAM = demanda ativa medida (kW); DAC = demanda ativa contratada (kW)
+- VRDULT = tarifa de demanda do subgrupo A (ou TUSD-Consumidores-Livres)
+- p = ponta / fora-ponta (modalidades horárias)
 
----
+**GATILHOS (caput):** 1% injeção/exportador/importador · **5% consumo do consumidor** (nosso caso) · 10% outra distribuidora.
 
-## 5. DECISÕES TOMADAS (registro)
+**REGRA CRÍTICA:** os 5% são GATILHO (liga/desliga), NÃO franquia dedutível. Se DAM ≤ 1,05·DAC → cobrança ZERO. Se DAM > 1,05·DAC → cobrança = (DAM − DAC) × 2 × VRDULT. Base = (DAM − DAC), contratada CHEIA, NUNCA (DAM − 1,05·DAC).
 
-- **Opção A (isolamento modular)** para toda expansão — zero regressão.
-- **SimuladorRapidoBess** separado, premissas próprias (NÃO unificar com motorDemanda).
-- **Trava C-Rate** com dois modos (Conservador/Justo) — controle ao vendedor na tela.
-- **Badge de PDF honesto** — não afirmar "Processado" sem parser.
-- **Híbrida reusa o motor de produção** em vez de duplicar fórmula.
-- **Híbrida exige Tensão (V)** no modo customizado.
-- **Híbrida plugada como sub-aba** (Opção 2), não substitui a calculadora antiga — convivem para comparação.
-- **e-mail Locaweb** é a versão correta; Gmail é proibida.
+**Exceção (§2º):** tração elétrica interligada em indisponibilidade não atribuível ao consumidor.
+
+**No `motorDemanda.ts`:** `calcularCustoDemanda` JÁ implementa isto corretamente (auditado linha a linha). `toleranciaUltrapassagem: 0.05` e `multiplicadorUltrapassagem: 2` confirmados. Comentários/avisos atualizados (removido o flag VALIDAR). A fonte que citava "3×" estava errada (3× era a REN 456/2000, revogada).
+
+**Ressalva (melhoria futura, não bloqueante):** o motor usa a TUSD de demanda informada como aproximação do VRDULT. Para a maioria dos casos cativos do Grupo A coincide, mas o VRDULT é rubrica tarifária própria nas resoluções homologatórias — idealmente puxar o valor real do Núcleo Tarifário ANEEL. Aviso explícito já exibido na UI.
 
 ---
 
-## 6. HISTÓRICO DE DEPLOYS-CHAVE (READY)
+## 5. PRÓXIMOS PASSOS (ordem sugerida)
 
-- `20fd329` Update TelaPrincipal.tsx — **READY** (Híbrida plugada como 4ª sub-aba)
-- `0ee1ca3` Update CalculadoraHibridaFP.tsx — READY (Tarefa 3, import corrigido)
-- `798ae71` Update PaginaDemanda.tsx — READY (sub-abas Nível 3)
-- `77c40fd` Create SimuladorRapidoBess.tsx — READY (Tarefa 2)
-- `8029a39` Update PaginaDemanda.tsx — READY (Tarefa 1: lote + badge)
-- `ef67afd` Update catalogoTrafos.ts — READY (bug quantity→quantidade)
-- `89844501` Update enviarLead.ts — READY (import ResultadoCalculadoraIndustrial)
+1. Remover `[skip ci]` do workflow `sincroniza-grafias-aneel.yml` (auto-publica JSON a cada sync). Trivial, baixo risco.
+2. Plugar parser real de PDF de fatura (hoje stub; badge honesto).
+3. (Opcional) Configurar env `WHATSAPP_ENGENHARIA_WEBHOOK_URL` (ativa disparo WhatsApp).
+4. (Melhoria) Puxar VRDULT real da ANEEL em vez de aproximar pela TUSD de demanda.
+5. Construir visões Leigo (B2C), módulo a módulo.
+6. Módulos 4 (Solar on-grid Lei 14.300) e 5 (Residencial NBR 5410) — não iniciados.
+
 ---
+
+## 6. DECISÕES TOMADAS (registro)
+
+- Opção A (isolamento modular) para toda expansão.
+- SimuladorRapidoBess separado, premissas próprias (NÃO unificar com motorDemanda).
+- Trava C-Rate Conservador/Justo — controle ao vendedor.
+- Badge de PDF honesto.
+- Híbrida reusa o motor de produção; exige Tensão (V) no modo custom; plugada como sub-aba (não substitui a antiga — convivem).
+- e-mail Locaweb correto; Gmail proibida.
+- **Regra de ultrapassagem confirmada SOMENTE após leitura do art. 301 no PDF oficial — não por fontes secundárias (que divergiam 2× vs 3×).**
+
+---
+
+## 7. HISTÓRICO DE DEPLOYS-CHAVE (READY)
+
+- `20fd329` TelaPrincipal.tsx (Híbrida plugada) · `0ee1ca3` CalculadoraHibridaFP.tsx · `798ae71` PaginaDemanda.tsx (sub-abas) · `77c40fd` SimuladorRapidoBess.tsx · `8029a39` PaginaDemanda.tsx (lote+badge) · `ef67afd` catalogoTrafos.ts · `89844501` enviarLead.ts
+- (próximo) motorDemanda.ts — comentários/avisos REN art. 301 validados
