@@ -86,13 +86,18 @@ Fonte: PDF oficial ANEEL (ren20211000.pdf), Seção VII, Art. 301, redação con
 
 ## 5. PRÓXIMOS PASSOS (ordem sugerida)
 
-1. Remover `[skip ci]` do workflow `sincroniza-grafias-aneel.yml` (auto-publica JSON a cada sync). Trivial, baixo risco.
-2. Plugar parser real de PDF de fatura (hoje stub; badge honesto).
-3. (Opcional) Configurar env `WHATSAPP_ENGENHARIA_WEBHOOK_URL` (ativa disparo WhatsApp).
-4. (Melhoria) Puxar VRDULT real da ANEEL em vez de aproximar pela TUSD de demanda.
-5. Construir visões Leigo (B2C), módulo a módulo.
-6. Módulos 4 (Solar on-grid Lei 14.300) e 5 (Residencial NBR 5410) — não iniciados.
+1. ✅ FEITO — [skip ci] removido do workflow de grafias (commit 26fb586, em produção). Auto-publica no próximo disparo (cron de segunda ou "Run workflow" manual).
+2. (Faxina, sem código) Deletar branch `revisao-1` e branches `cursor/*` pela página de branches do GitHub. Nenhuma está em produção.
+3. (Opcional) Rodar "Sincronização de Grafias ANEEL" manualmente (Actions → Run workflow) para publicar o JSON de hoje em vez de esperar a segunda.
+4. Plugar parser real de PDF de fatura (hoje stub; badge honesto). TAREFA GRANDE — abrir sessão nova.
+5. (Melhoria) Puxar VRDULT real da ANEEL em vez de aproximar pela TUSD de demanda.
+6. Construir visões Leigo (B2C). TAREFA GRANDE — abrir sessão nova.
+7. Módulos 4 (Solar on-grid Lei 14.300) e 5 (Residencial NBR 5410) — não iniciados.
 
+## NOTA DE PROCESSO — complemento (2026-06-25)
+- A aba "Actions" do GitHub mostra runs de "Codespaces Prebuilds" (NÃO é o build do site; é prebuild de ambiente Codespaces). Roda a cada commit na main e consome cota do Actions. Se Codespaces não for usado, considerar desativar (Settings → Codespaces, ou remover a config de prebuild). Faxina opcional, não urgente.
+- Build/deploy REAL do site é feito pela Vercel, sistema separado, confirmado READY via MCP.
+- Workflow de grafias: run #3 (Scheduled, 22/06, sucesso, 5m30s) confirma que funciona. Edição do [skip ci] (hoje) ainda não exercitada — efeito no próximo disparo.
 ---
 
 ## 6. DECISÕES TOMADAS (registro)
