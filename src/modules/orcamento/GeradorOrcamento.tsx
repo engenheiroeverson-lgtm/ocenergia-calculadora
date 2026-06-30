@@ -24,7 +24,8 @@ const EMPRESA = {
   emails: ["loja@ocenergiasolar.com.br", "financeiro@ocenergiasolar.com.br"],
   endereco: "Av. Marechal Rondon, 998 - Centro, Barra do Bugres - MT, 78390-000",
   validadeDias: 15,
-  logoSrc: "/LOGO_OCENERGIA_SOL.PNG", // <- símbolo do sol. Troque pela variante desejada (ver topo)
+  logoSimbolo: "/LOGO_OCENERGIA_SOL.PNG", // símbolo do sol
+  logoTexto: "/LOGO_SO_OCENERGIA.PNG",    // logotipo: palavra OCENERGIA (ao lado do sol)
 };
 
 const COR = {
@@ -402,7 +403,10 @@ export default function GeradorOrcamento(): React.ReactElement {
     // Documento (identidade OCENERGIA)
     doc: { flex: "2 1 520px", minWidth: 360, background: COR.branco, border: `1px solid ${COR.borda}`, borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 3px rgba(16,24,40,0.06)" },
     cabecalho: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, padding: "20px 22px", background: COR.branco },
-    logo: { height: 64, width: "auto", objectFit: "contain" },
+    logoLockup: { display: "flex", alignItems: "center", gap: 10 },
+    logoSimbolo: { height: 54, width: "auto", objectFit: "contain" },
+    logoTexto: { height: 30, width: "auto", objectFit: "contain" },
+    tagline: { fontSize: 12, fontWeight: 700, color: COR.azul, marginBottom: 1 },
     empresaInfo: { textAlign: "right", fontSize: 11, lineHeight: 1.55, color: COR.cinza },
     empresaNome: { fontSize: 15, fontWeight: 700, color: COR.primaria, letterSpacing: 0.3 },
     razaoPeq: { fontSize: 10, color: COR.cinzaClaro, marginBottom: 3 },
@@ -573,9 +577,12 @@ export default function GeradorOrcamento(): React.ReactElement {
       {/* DOCUMENTO */}
       <section style={styles.doc} id="orcamento-doc">
         <header style={styles.cabecalho}>
-          <img src={EMPRESA.logoSrc} alt={EMPRESA.nomeFantasia} style={styles.logo} />
+          <div style={styles.logoLockup}>
+            <img src={EMPRESA.logoSimbolo} alt="Símbolo OCENERGIA" style={styles.logoSimbolo} />
+            <img src={EMPRESA.logoTexto} alt="OCENERGIA" style={styles.logoTexto} />
+          </div>
           <div style={styles.empresaInfo}>
-            <div style={styles.empresaNome}>OCENERGIA <span style={{ color: COR.azul }}>— Materiais Elétricos &amp; Solar</span></div>
+            <div style={styles.tagline}>Materiais Elétricos &amp; Solar</div>
             <div style={styles.razaoPeq}>{EMPRESA.razaoSocial}</div>
             <div>CNPJ: {EMPRESA.cnpj} &nbsp;|&nbsp; IE: {EMPRESA.ie}</div>
             <div>{EMPRESA.telefones.join("  •  ")}</div>
