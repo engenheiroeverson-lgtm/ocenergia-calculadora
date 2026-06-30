@@ -97,6 +97,33 @@ function sanitizarTelefone(tel: string): string {
   return d;
 }
 
+// Estilos dinâmicos ficam FORA do objeto `styles` (que é Record<string, CSSProperties>
+// e não pode conter funções). Devolvem CSSProperties calculado por estado.
+const estiloToggle = (ativo: boolean): React.CSSProperties => ({
+  flex: 1,
+  padding: "8px 10px",
+  fontSize: 12,
+  fontWeight: 600,
+  cursor: "pointer",
+  borderRadius: 8,
+  border: `1px solid ${ativo ? COR.primaria : COR.borda}`,
+  background: ativo ? COR.primaria : COR.branco,
+  color: ativo ? COR.branco : COR.cinza,
+});
+
+const estiloBtn = (bg: string, off?: boolean): React.CSSProperties => ({
+  flex: "1 1 180px",
+  padding: "12px 16px",
+  fontSize: 14,
+  fontWeight: 700,
+  color: COR.branco,
+  background: bg,
+  border: "none",
+  borderRadius: 8,
+  cursor: off ? "not-allowed" : "pointer",
+  opacity: off ? 0.6 : 1,
+});
+
 export default function GeradorOrcamento(): React.ReactElement {
   const hoje = useMemo(() => new Date(), []);
   const validade = useMemo(() => {
@@ -323,7 +350,6 @@ export default function GeradorOrcamento(): React.ReactElement {
     linha2: { display: "flex", gap: 12, flexWrap: "wrap" },
     col: { flex: "1 1 140px" },
     toggle: { display: "flex", gap: 8, marginTop: 4 },
-    toggleBtn: (ativo: boolean): React.CSSProperties => ({ flex: 1, padding: "8px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer", borderRadius: 8, border: `1px solid ${ativo ? COR.primaria : COR.borda}`, background: ativo ? COR.primaria : COR.branco, color: ativo ? COR.branco : COR.cinza }),
     ajuda: { fontSize: 11, color: COR.cinza, marginTop: 6, lineHeight: 1.4 },
     formula: { fontSize: 11, color: COR.azul, marginTop: 8, fontFamily: "monospace", wordBreak: "break-all" },
     erro: { marginTop: 10, padding: "8px 10px", background: "#FDECEA", border: "1px solid #F5C6CB", borderRadius: 8, color: "#922B21", fontSize: 13 },
@@ -345,7 +371,6 @@ export default function GeradorOrcamento(): React.ReactElement {
     rodape: { padding: "14px 24px", borderTop: `1px solid ${COR.borda}`, fontSize: 11, color: COR.cinza, textAlign: "center" },
     validade: { color: COR.laranja, fontWeight: 600, fontStyle: "italic" },
     acoes: { flex: "1 1 100%", display: "flex", flexWrap: "wrap", gap: 10 },
-    btn: (bg: string, off?: boolean): React.CSSProperties => ({ flex: "1 1 180px", padding: "12px 16px", fontSize: 14, fontWeight: 700, color: COR.branco, background: bg, border: "none", borderRadius: 8, cursor: off ? "not-allowed" : "pointer", opacity: off ? 0.6 : 1 }),
     notaAcoes: { flex: "1 1 100%", fontSize: 11, color: COR.cinza, lineHeight: 1.5, marginTop: 4 },
     avisoBox: { flex: "1 1 100%", padding: "10px 12px", background: "#FEF6E7", border: `1px solid ${COR.amarelo}`, borderRadius: 8, color: "#8A5A00", fontSize: 13 },
   };
@@ -410,8 +435,8 @@ export default function GeradorOrcamento(): React.ReactElement {
         <div style={styles.grupo}>
           <label style={styles.label}>Como a margem é aplicada?</label>
           <div style={styles.toggle}>
-            <button type="button" style={styles.toggleBtn(modo === "markup")} onClick={() => setModo("markup")}>Markup sobre o custo</button>
-            <button type="button" style={styles.toggleBtn(modo === "venda")} onClick={() => setModo("venda")}>Margem sobre a venda</button>
+            <button type="button" style={estiloToggle(modo === "markup")} onClick={() => setModo("markup")}>Markup sobre o custo</button>
+            <button type="button" style={estiloToggle(modo === "venda")} onClick={() => setModo("venda")}>Margem sobre a venda</button>
           </div>
           <p style={styles.ajuda}>
             <strong>Markup:</strong> ganho em cima do custo (PV = Custo × (1 + m)).{" "}
@@ -472,17 +497,17 @@ export default function GeradorOrcamento(): React.ReactElement {
 
       {/* AÇÕES */}
       <div style={styles.acoes} className="no-print">
-        <button type="button" style={styles.btn(COR.amarelo)} onClick={handleImprimir}>Imprimir</button>
-        <button type="button" style={styles.btn(COR.primaria, gerando)} onClick={handleBaixarPdf} disabled={gerando}>
+        <button type="button" style={estiloBtn(COR.amarelo)} onClick={handleImprimir}>Imprimir</button>
+        <button type="button" style={estiloBtn(COR.primaria, gerando)} onClick={handleBaixarPdf} disabled={gerando}>
           {gerando ? "Gerando…" : "Baixar PDF"}
         </button>
-        <button type="button" style={styles.btn(COR.sucesso, gerando)} onClick={handleEnviarPdf} disabled={gerando}>
+        <button type="button" style={estiloBtn(COR.sucesso, gerando)} onClick={handleEnviarPdf} disabled={gerando}>
           {gerando ? "Gerando…" : "Enviar PDF (WhatsApp)"}
         </button>
-        <button type="button" style={styles.btn(COR.laranja, gerando)} onClick={handleEnviarEmailPdf} disabled={gerando}>
+        <button type="button" style={estiloBtn(COR.laranja, gerando)} onClick={handleEnviarEmailPdf} disabled={gerando}>
           {gerando ? "Gerando…" : "E-mail (PDF)"}
         </button>
-        <button type="button" style={styles.btn(COR.azul)} onClick={handleEmailTexto}>E-mail (texto)</button>
+        <button type="button" style={estiloBtn(COR.azul)} onClick={handleEmailTexto}>E-mail (texto)</button>
       </div>
 
       {aviso && <div style={styles.avisoBox} className="no-print">{aviso}</div>}
