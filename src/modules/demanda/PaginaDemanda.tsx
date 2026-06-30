@@ -158,8 +158,13 @@ export default function PaginaDemanda() {
     setNomeArquivoImportado(arquivo.name);
     e.target.value = '';
   }
-  function limparImportacao() {
+ function limparImportacao() {
     setNomeArquivoImportado(null);
+  }
+
+  // Item 4 — abre o diálogo de impressão do navegador (permite "Salvar em PDF").
+  function handleImprimir() {
+    window.print();
   }
 
   const resultado: ResultadoModuloII = useMemo(() => {
