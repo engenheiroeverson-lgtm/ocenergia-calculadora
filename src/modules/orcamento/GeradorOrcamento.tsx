@@ -1,26 +1,18 @@
 import React, { useMemo, useRef, useState } from "react";
-import { jsPDF } from "jspdf";          // npm i jspdf
-import html2canvas from "html2canvas";  // npm i html2canvas
-import { lerOrcamentoFornecedor } from "./lerOrcamentoFornecedor"; // leitor de PDF de fornecedor
+import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
+import { lerOrcamentoFornecedor } from "./lerOrcamentoFornecedor";
 
 /**
- * GeradorOrcamento.tsx
- * -------------------------------------------------------------------------
- * Módulo genérico de orçamento da plataforma OCENERGIA.
+ * GeradorOrcamento.tsx — layout com a identidade visual OCENERGIA (azul + âmbar).
+ * Funções preservadas: importar PDF do fornecedor, PDF (JPEG, leve), WhatsApp,
+ * e-mail (texto e PDF anexo), resumo interno.
  *
- * AÇÕES:
- *   - Imprimir / Salvar PDF (window.print)
- *   - Baixar PDF (jsPDF + html2canvas -> Blob -> download)  [imagem JPEG, leve]
- *   - Enviar PDF (WhatsApp/Compartilhar): celular usa navigator.share (arquivo);
- *     desktop baixa o PDF e abre o WhatsApp Web (texto).
- *   - E-mail (PDF) via backend /api/enviar-orcamento ; E-mail (texto) via mailto.
- *   - Importar PDF do FORNECEDOR -> extrai itens (descrição + valor) para revisão.
- *
- * Definição de "margem":
- *   - "markup": PV = Custo * (1 + m)      "venda": PV = Custo / (1 - m)
- *
- * Convenções: estilos inline, paleta fixa, PT-BR. @media print em <style>.
- * -------------------------------------------------------------------------
+ * LOGO — escolha a variante numa linha só (coloque o PNG em public/):
+ *   "/LOGO_OCENERGIA01.png"          -> completo (sol + OCENERGIA + SOLAR)  [já em public]
+ *   "/LOGO_OCENERGIA_SOL.PNG"        -> só o símbolo do sol (recomendado p/ cabeçalho)
+ *   "/LOGO_OCENERGIA_SEM_SOLAR.PNG"  -> símbolo + OCENERGIA
+ *   "/LOGO_SO_OCENERGIA.PNG"         -> só a palavra OCENERGIA
  */
 
 const EMPRESA = {
@@ -32,27 +24,28 @@ const EMPRESA = {
   emails: ["loja@ocenergiasolar.com.br", "financeiro@ocenergiasolar.com.br"],
   endereco: "Av. Marechal Rondon, 998 - Centro, Barra do Bugres - MT, 78390-000",
   validadeDias: 15,
-  logoSrc: "/LOGO_OCENERGIA01.png",
+  logoSrc: "/LOGO_OCENERGIA_SOL.PNG", // <- símbolo do sol. Troque pela variante desejada (ver topo)
 };
 
 const COR = {
   primaria: "#1B3A6B",
   azul: "#2E86C1",
+  azulClaroTxt: "#B3D4F5",
   amarelo: "#F39C12",
   laranja: "#E67E22",
+  ambarTxt: "#854F0B",
   neutroClaro: "#F4F6F9",
   azulClaro: "#D5E8F3",
   cinza: "#475467",
+  cinzaClaro: "#7A8699",
   escuro: "#101828",
   sucesso: "#1E7E47",
-  sucessoBg: "#E8F8F0",
   branco: "#FFFFFF",
   borda: "#D5E8F3",
 };
 
 type ModoMargem = "markup" | "venda";
 
-// Linha editável da importação do fornecedor (valor como texto para edição sem jank).
 interface LinhaImport {
   descricao: string;
   valorTexto: string;
@@ -146,7 +139,6 @@ export default function GeradorOrcamento(): React.ReactElement {
   const [gerando, setGerando] = useState<boolean>(false);
   const [aviso, setAviso] = useState<string | null>(null);
 
-  // Importação de PDF do fornecedor
   const inputPdfRef = useRef<HTMLInputElement>(null);
   const [importando, setImportando] = useState<boolean>(false);
   const [itensImportados, setItensImportados] = useState<LinhaImport[]>([]);
@@ -186,25 +178,17 @@ export default function GeradorOrcamento(): React.ReactElement {
       EMPRESA.emails[0],
     ].join("\n");
 
-  /** Renderiza o #orcamento-doc em um PDF A4 (imagem JPEG, leve) e devolve o Blob. */
   async function gerarPdfBlob(): Promise<Blob> {
     const el = document.getElementById("orcamento-doc");
     if (!el) throw new Error("Documento não encontrado na página.");
 
-    const canvas = await html2canvas(el, {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: "#ffffff",
-    });
-
+    const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
     const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     const pageW = pdf.internal.pageSize.getWidth();
     const pageH = pdf.internal.pageSize.getHeight();
-
     const imgW = pageW;
     const imgH = (canvas.height * imgW) / canvas.width;
-    // JPEG (qualidade 0.85) em vez de PNG: arquivo bem menor, evita HTTP 413 no e-mail.
-    const imgData = canvas.toDataURL("image/jpeg", 0.85);
+    const imgData = canvas.toDataURL("image/jpeg", 0.85); // JPEG: leve, evita HTTP 413
 
     let heightLeft = imgH;
     let position = 0;
@@ -216,7 +200,6 @@ export default function GeradorOrcamento(): React.ReactElement {
       pdf.addImage(imgData, "JPEG", 0, position, imgW, imgH);
       heightLeft -= pageH;
     }
-
     return pdf.output("blob");
   }
 
@@ -254,10 +237,7 @@ export default function GeradorOrcamento(): React.ReactElement {
     try {
       const r = await lerOrcamentoFornecedor(file);
       setItensImportados(
-        r.itens.map((it) => ({
-          descricao: it.descricao,
-          valorTexto: it.valor.toFixed(2).replace(".", ","),
-        }))
+        r.itens.map((it) => ({ descricao: it.descricao, valorTexto: it.valor.toFixed(2).replace(".", ",") }))
       );
       setTextoBrutoImport(r.textoBruto);
       setAvisoImport(r.aviso);
@@ -270,14 +250,8 @@ export default function GeradorOrcamento(): React.ReactElement {
     }
   };
 
-  const atualizarItemImportado = (
-    i: number,
-    campo: "descricao" | "valorTexto",
-    valor: string
-  ): void => {
-    setItensImportados((prev) =>
-      prev.map((item, idx) => (idx === i ? { ...item, [campo]: valor } : item))
-    );
+  const atualizarItemImportado = (i: number, campo: "descricao" | "valorTexto", valor: string): void => {
+    setItensImportados((prev) => prev.map((item, idx) => (idx === i ? { ...item, [campo]: valor } : item)));
   };
 
   const removerItemImportado = (i: number): void => {
@@ -288,10 +262,8 @@ export default function GeradorOrcamento(): React.ReactElement {
     if (itensImportados.length === 0) return;
     const linhas = itensImportados.map((it) => it.descricao.trim()).filter(Boolean).join("\n");
     setDescricao((prev) => (prev.trim() ? prev + "\n" + linhas : linhas));
-    setCusto(totalImportado.toFixed(2)); // soma dos valores do fornecedor = custo
-    setAvisoImport(
-      `Aplicado: ${itensImportados.length} item(ns). Custo preenchido com ${brl(totalImportado)}.`
-    );
+    setCusto(totalImportado.toFixed(2));
+    setAvisoImport(`Aplicado: ${itensImportados.length} item(ns). Custo preenchido com ${brl(totalImportado)}.`);
   };
 
   const limparImport = (): void => {
@@ -330,11 +302,7 @@ export default function GeradorOrcamento(): React.ReactElement {
     try {
       const blob = await gerarPdfBlob();
       const file = new File([blob], nomeArquivo, { type: "application/pdf" });
-
-      const nav = navigator as Navigator & {
-        canShare?: (data?: ShareData) => boolean;
-      };
-
+      const nav = navigator as Navigator & { canShare?: (data?: ShareData) => boolean };
       if (nav.canShare && nav.canShare({ files: [file] }) && typeof nav.share === "function") {
         await nav.share({ files: [file], title: `Proposta nº ${numero}`, text: montarResumo() });
       } else {
@@ -411,41 +379,53 @@ export default function GeradorOrcamento(): React.ReactElement {
     ajuda: { fontSize: 11, color: COR.cinza, marginTop: 6, lineHeight: 1.4 },
     formula: { fontSize: 11, color: COR.azul, marginTop: 8, fontFamily: "monospace", wordBreak: "break-all" },
     erro: { marginTop: 10, padding: "8px 10px", background: "#FDECEA", border: "1px solid #F5C6CB", borderRadius: 8, color: "#922B21", fontSize: 13 },
-    // Importação fornecedor
-    importBox: { marginBottom: 14, padding: 14, border: `1px dashed ${COR.azul}`, borderRadius: 8, background: "#F5FAFF" },
-    importTitulo: { fontSize: 13, fontWeight: 700, color: COR.primaria, marginBottom: 8 },
-    importBtn: { padding: "10px 14px", fontSize: 13, fontWeight: 700, color: COR.branco, background: COR.azul, border: "none", borderRadius: 8, cursor: "pointer" },
-    itemRow: { display: "flex", gap: 6, alignItems: "center", marginTop: 6 },
-    itemDesc: { flex: "1 1 auto", minWidth: 0, padding: "6px 8px", fontSize: 12, border: `1px solid ${COR.borda}`, borderRadius: 6, color: COR.escuro, boxSizing: "border-box" },
-    itemValor: { width: 90, padding: "6px 8px", fontSize: 12, border: `1px solid ${COR.borda}`, borderRadius: 6, color: COR.escuro, boxSizing: "border-box" },
-    itemRemover: { width: 28, height: 28, flex: "0 0 auto", border: "none", borderRadius: 6, background: "#FDECEA", color: "#922B21", cursor: "pointer", fontWeight: 700 },
-    importAcoes: { display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap", alignItems: "center" },
-    textoBrutoBox: { marginTop: 8, maxHeight: 160, overflow: "auto", fontSize: 11, fontFamily: "monospace", whiteSpace: "pre-wrap", background: COR.branco, border: `1px solid ${COR.borda}`, borderRadius: 6, padding: 8, color: COR.cinza },
+
+    // Importação fornecedor (estilo tabela limpa)
+    importBox: { marginBottom: 14, padding: 16, border: `1px solid ${COR.borda}`, borderRadius: 12, background: COR.branco },
+    importHead: { display: "flex", alignItems: "center", gap: 8, marginBottom: 12, fontSize: 13, fontWeight: 700, color: COR.primaria },
+    dropZone: { border: `1.5px dashed ${COR.amarelo}`, background: "#FFF8EC", borderRadius: 10, padding: 18, textAlign: "center", cursor: "pointer" },
+    dropTitulo: { fontSize: 13, color: COR.ambarTxt, fontWeight: 700, marginTop: 4 },
+    dropSub: { fontSize: 11, color: "#9A8252" },
+    tabela: { border: `0.5px solid ${COR.borda}`, borderRadius: 10, overflow: "hidden", marginTop: 12 },
+    tabelaHead: { display: "flex", background: COR.primaria, color: COR.branco, fontSize: 11, fontWeight: 600, padding: "8px 12px" },
+    linhaItem: { display: "flex", alignItems: "center", borderTop: `0.5px solid ${COR.borda}` },
+    inputDesc: { flex: "1 1 auto", minWidth: 0, border: "none", background: "transparent", fontSize: 12, color: COR.escuro, padding: "9px 12px", outline: "none" },
+    inputValor: { width: 92, border: "none", background: "transparent", fontSize: 12, color: COR.escuro, textAlign: "right", fontFamily: "monospace", outline: "none", padding: "9px 8px" },
+    btnRemover: { width: 30, flex: "0 0 auto", border: "none", background: "transparent", color: "#C0392B", cursor: "pointer", fontSize: 15, fontWeight: 700 },
+    importFooter: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, gap: 10, flexWrap: "wrap" },
+    badgeCusto: { background: "#FAEEDA", color: COR.ambarTxt, fontSize: 12, fontWeight: 700, padding: "6px 12px", borderRadius: 8 },
+    btnAplicar: { background: COR.azul, color: COR.branco, border: "none", borderRadius: 8, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer" },
     linkBtn: { background: "none", border: "none", color: COR.azul, cursor: "pointer", fontSize: 12, textDecoration: "underline", padding: 0 },
-    avisoImportBox: { marginTop: 8, fontSize: 12, color: "#8A5A00", background: "#FEF6E7", border: `1px solid ${COR.amarelo}`, borderRadius: 6, padding: "6px 8px" },
-    // Documento
+    avisoImportBox: { marginTop: 10, fontSize: 12, color: COR.ambarTxt, background: "#FEF6E7", border: `1px solid ${COR.amarelo}`, borderRadius: 6, padding: "6px 8px" },
+    textoBrutoBox: { marginTop: 8, maxHeight: 160, overflow: "auto", fontSize: 11, fontFamily: "monospace", whiteSpace: "pre-wrap", background: COR.neutroClaro, border: `1px solid ${COR.borda}`, borderRadius: 6, padding: 8, color: COR.cinza },
+
+    // Documento (identidade OCENERGIA)
     doc: { flex: "2 1 520px", minWidth: 360, background: COR.branco, border: `1px solid ${COR.borda}`, borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 3px rgba(16,24,40,0.06)" },
-    cabecalho: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, padding: 24, background: COR.primaria, color: COR.branco },
-    logo: { height: 56, objectFit: "contain", background: "transparent" },
-    empresaInfo: { textAlign: "right", fontSize: 11, lineHeight: 1.5 },
-    empresaNome: { fontSize: 14, fontWeight: 700, marginBottom: 2 },
-    corpo: { padding: 24 },
-    tituloDoc: { fontSize: 20, fontWeight: 700, color: COR.primaria, margin: "0 0 4px" },
-    metaLinha: { display: "flex", justifyContent: "space-between", fontSize: 12, color: COR.cinza, borderBottom: `1px solid ${COR.borda}`, paddingBottom: 12, marginBottom: 16, flexWrap: "wrap", gap: 8 },
-    blocoCliente: { background: COR.neutroClaro, borderRadius: 8, padding: "12px 14px", marginBottom: 16, fontSize: 13 },
-    rotulo: { fontSize: 11, color: COR.cinza, textTransform: "uppercase", letterSpacing: 0.5 },
+    cabecalho: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, padding: "20px 22px", background: COR.branco },
+    logo: { height: 64, width: "auto", objectFit: "contain" },
+    empresaInfo: { textAlign: "right", fontSize: 11, lineHeight: 1.55, color: COR.cinza },
+    empresaNome: { fontSize: 15, fontWeight: 700, color: COR.primaria, letterSpacing: 0.3 },
+    razaoPeq: { fontSize: 10, color: COR.cinzaClaro, marginBottom: 3 },
+    barraMarca: { display: "flex", height: 4 },
+    corpo: { padding: 22 },
+    tituloDoc: { display: "inline-block", fontSize: 20, fontWeight: 700, color: COR.primaria, borderBottom: `3px solid ${COR.amarelo}`, paddingBottom: 2 },
+    metaLinha: { display: "flex", justifyContent: "space-between", fontSize: 12, color: COR.cinza, borderBottom: `0.5px solid ${COR.borda}`, padding: "12px 0", margin: "12px 0 16px", flexWrap: "wrap", gap: 8 },
+    blocoCliente: { background: COR.neutroClaro, borderLeft: `3px solid ${COR.azul}`, borderRadius: "0 8px 8px 0", padding: "12px 14px", marginBottom: 16, fontSize: 13 },
+    rotulo: { fontSize: 10, color: COR.cinzaClaro, textTransform: "uppercase", letterSpacing: 0.6 },
     descricaoBox: { whiteSpace: "pre-wrap", fontSize: 14, lineHeight: 1.6, color: COR.escuro, marginBottom: 20, minHeight: 40 },
-    totalBox: { background: COR.sucessoBg, border: `1px solid ${COR.sucesso}`, borderRadius: 10, padding: 20, textAlign: "right" },
-    totalRotulo: { fontSize: 13, color: COR.cinza, marginBottom: 4 },
-    totalValor: { fontSize: 24, fontWeight: 800, color: COR.sucesso },
+    totalBox: { background: COR.primaria, borderLeft: `4px solid ${COR.amarelo}`, borderRadius: "0 10px 10px 0", padding: "18px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" },
+    totalRotulo: { fontSize: 13, color: COR.azulClaroTxt },
+    totalValor: { fontSize: 26, fontWeight: 800, color: COR.branco },
+    rodape: { padding: "14px 22px", borderTop: `0.5px solid ${COR.borda}`, background: "#F9FBFD", fontSize: 11, color: COR.cinza, textAlign: "center" },
+    validade: { color: COR.ambarTxt, fontWeight: 600, fontStyle: "italic", marginTop: 2 },
+
     resumoInterno: { marginTop: 14, padding: "12px 14px", background: "#FFF8E1", border: `1px dashed ${COR.amarelo}`, borderRadius: 8 },
-    resumoInternoTitulo: { fontSize: 11, fontWeight: 700, color: "#8A5A00", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.4 },
+    resumoInternoTitulo: { fontSize: 11, fontWeight: 700, color: COR.ambarTxt, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.4 },
     resumoInternoLinha: { display: "flex", justifyContent: "space-between", fontSize: 13, color: COR.escuro, padding: "3px 0" },
-    rodape: { padding: "14px 24px", borderTop: `1px solid ${COR.borda}`, fontSize: 11, color: COR.cinza, textAlign: "center" },
-    validade: { color: COR.laranja, fontWeight: 600, fontStyle: "italic" },
+
     acoes: { flex: "1 1 100%", display: "flex", flexWrap: "wrap", gap: 10 },
     notaAcoes: { flex: "1 1 100%", fontSize: 11, color: COR.cinza, lineHeight: 1.5, marginTop: 4 },
-    avisoBox: { flex: "1 1 100%", padding: "10px 12px", background: "#FEF6E7", border: `1px solid ${COR.amarelo}`, borderRadius: 8, color: "#8A5A00", fontSize: 13 },
+    avisoBox: { flex: "1 1 100%", padding: "10px 12px", background: "#FEF6E7", border: `1px solid ${COR.amarelo}`, borderRadius: 8, color: COR.ambarTxt, fontSize: 13 },
   };
 
   return (
@@ -491,51 +471,51 @@ export default function GeradorOrcamento(): React.ReactElement {
 
         {/* IMPORTAR PDF DO FORNECEDOR */}
         <div style={styles.importBox}>
-          <div style={styles.importTitulo}>Importar PDF do fornecedor (opcional)</div>
+          <div style={styles.importHead}>
+            <span style={{ fontSize: 16 }}>⤓</span> Importar PDF do fornecedor
+          </div>
           <input ref={inputPdfRef} type="file" accept="application/pdf" style={{ display: "none" }} onChange={handleArquivoPdf} />
-          <button
-            type="button"
-            style={{ ...styles.importBtn, opacity: importando ? 0.6 : 1, cursor: importando ? "not-allowed" : "pointer" }}
+          <div
+            style={{ ...styles.dropZone, opacity: importando ? 0.6 : 1, pointerEvents: importando ? "none" : "auto" }}
             onClick={() => inputPdfRef.current?.click()}
-            disabled={importando}
           >
-            {importando ? "Lendo PDF…" : "Selecionar PDF do fornecedor"}
-          </button>
+            <div style={{ fontSize: 24, color: COR.laranja }}>⬆</div>
+            <div style={styles.dropTitulo}>{importando ? "Lendo PDF…" : "Selecionar PDF do fornecedor"}</div>
+            <div style={styles.dropSub}>clique para escolher o arquivo</div>
+          </div>
 
           {avisoImport && <div style={styles.avisoImportBox}>{avisoImport}</div>}
 
           {itensImportados.length > 0 && (
             <>
-              {itensImportados.map((it, i) => (
-                <div key={i} style={styles.itemRow}>
-                  <input
-                    style={styles.itemDesc}
-                    value={it.descricao}
-                    onChange={(e) => atualizarItemImportado(i, "descricao", e.target.value)}
-                    placeholder="Descrição"
-                  />
-                  <input
-                    style={styles.itemValor}
-                    value={it.valorTexto}
-                    onChange={(e) => atualizarItemImportado(i, "valorTexto", e.target.value)}
-                    placeholder="0,00"
-                    inputMode="decimal"
-                  />
-                  <button type="button" style={styles.itemRemover} onClick={() => removerItemImportado(i)} title="Remover">×</button>
+              <div style={styles.tabela}>
+                <div style={styles.tabelaHead}>
+                  <span style={{ flex: 1 }}>Descrição</span>
+                  <span style={{ width: 92, textAlign: "right" }}>Valor</span>
+                  <span style={{ width: 30 }} />
                 </div>
-              ))}
-              <div style={styles.importAcoes}>
-                <button type="button" style={styles.importBtn} onClick={aplicarItensImportados}>
-                  Aplicar no orçamento (custo {brl(totalImportado)})
-                </button>
-                <button type="button" style={styles.linkBtn} onClick={limparImport}>Limpar</button>
+                {itensImportados.map((it, i) => (
+                  <div key={i} style={{ ...styles.linhaItem, background: i % 2 ? "#F7FAFD" : COR.branco }}>
+                    <input style={styles.inputDesc} value={it.descricao} onChange={(e) => atualizarItemImportado(i, "descricao", e.target.value)} placeholder="Descrição" />
+                    <input style={styles.inputValor} value={it.valorTexto} onChange={(e) => atualizarItemImportado(i, "valorTexto", e.target.value)} placeholder="0,00" inputMode="decimal" />
+                    <button type="button" style={styles.btnRemover} onClick={() => removerItemImportado(i)} title="Remover">×</button>
+                  </div>
+                ))}
+              </div>
+
+              <div style={styles.importFooter}>
+                <span style={styles.badgeCusto}>Custo total: {brl(totalImportado)}</span>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <button type="button" style={styles.linkBtn} onClick={limparImport}>Limpar</button>
+                  <button type="button" style={styles.btnAplicar} onClick={aplicarItensImportados}>Aplicar no orçamento</button>
+                </div>
               </div>
             </>
           )}
 
           {textoBrutoImport && (
             <div>
-              <button type="button" style={{ ...styles.linkBtn, marginTop: 8 }} onClick={() => setMostrarTextoBruto((v) => !v)}>
+              <button type="button" style={{ ...styles.linkBtn, marginTop: 10 }} onClick={() => setMostrarTextoBruto((v) => !v)}>
                 {mostrarTextoBruto ? "Ocultar texto lido" : "Ver texto lido (conferência)"}
               </button>
               {mostrarTextoBruto && <div style={styles.textoBrutoBox}>{textoBrutoImport}</div>}
@@ -544,7 +524,7 @@ export default function GeradorOrcamento(): React.ReactElement {
 
           <p style={{ ...styles.ajuda, marginTop: 8 }}>
             Os valores lidos viram o <strong>custo</strong> (a margem é aplicada por cima) e não aparecem
-            para o cliente. Confira cada linha antes de aplicar — leitura automática pode errar.
+            para o cliente. Confira cada linha antes de aplicar.
           </p>
         </div>
 
@@ -579,7 +559,6 @@ export default function GeradorOrcamento(): React.ReactElement {
 
         {erro && <div style={styles.erro}>{erro}</div>}
 
-        {/* Resumo financeiro INTERNO — visível só na tela (painel é no-print). Não vai ao cliente. */}
         {custoNum > 0 && !erro && (
           <div style={styles.resumoInterno}>
             <div style={styles.resumoInternoTitulo}>Resumo interno (não aparece no orçamento do cliente)</div>
@@ -596,16 +575,21 @@ export default function GeradorOrcamento(): React.ReactElement {
         <header style={styles.cabecalho}>
           <img src={EMPRESA.logoSrc} alt={EMPRESA.nomeFantasia} style={styles.logo} />
           <div style={styles.empresaInfo}>
-            <div style={styles.empresaNome}>{EMPRESA.nomeFantasia}</div>
-            <div style={{ fontSize: 10, opacity: 0.85, marginBottom: 2 }}>{EMPRESA.razaoSocial}</div>
+            <div style={styles.empresaNome}>OCENERGIA <span style={{ color: COR.azul }}>— Materiais Elétricos &amp; Solar</span></div>
+            <div style={styles.razaoPeq}>{EMPRESA.razaoSocial}</div>
             <div>CNPJ: {EMPRESA.cnpj} &nbsp;|&nbsp; IE: {EMPRESA.ie}</div>
             <div>{EMPRESA.telefones.join("  •  ")}</div>
             <div>{EMPRESA.emails.join("  •  ")}</div>
           </div>
         </header>
+        <div style={styles.barraMarca}>
+          <div style={{ flex: 2, background: COR.primaria }} />
+          <div style={{ flex: 1, background: COR.azul }} />
+          <div style={{ flex: 1, background: COR.amarelo }} />
+        </div>
 
         <div style={styles.corpo}>
-          <h1 style={styles.tituloDoc}>Proposta / Orçamento</h1>
+          <div style={styles.tituloDoc}>Proposta / Orçamento</div>
           <div style={styles.metaLinha}>
             <span>Nº {numero || "—"}</span>
             <span>Data: {dataPtBr(hoje)}</span>
@@ -623,8 +607,8 @@ export default function GeradorOrcamento(): React.ReactElement {
           <div style={styles.descricaoBox}>{descricao || "Cole a descrição no painel ao lado."}</div>
 
           <div style={styles.totalBox}>
-            <div style={styles.totalRotulo}>Valor total</div>
-            <div style={styles.totalValor}>{brl(preco)}</div>
+            <span style={styles.totalRotulo}>Valor total</span>
+            <span style={styles.totalValor}>{brl(preco)}</span>
           </div>
         </div>
 
@@ -637,24 +621,17 @@ export default function GeradorOrcamento(): React.ReactElement {
       {/* AÇÕES */}
       <div style={styles.acoes} className="no-print">
         <button type="button" style={estiloBtn(COR.amarelo)} onClick={handleImprimir}>Imprimir</button>
-        <button type="button" style={estiloBtn(COR.primaria, gerando)} onClick={handleBaixarPdf} disabled={gerando}>
-          {gerando ? "Gerando…" : "Baixar PDF"}
-        </button>
-        <button type="button" style={estiloBtn(COR.sucesso, gerando)} onClick={handleEnviarPdf} disabled={gerando}>
-          {gerando ? "Gerando…" : "Enviar PDF (WhatsApp)"}
-        </button>
-        <button type="button" style={estiloBtn(COR.laranja, gerando)} onClick={handleEnviarEmailPdf} disabled={gerando}>
-          {gerando ? "Gerando…" : "E-mail (PDF)"}
-        </button>
+        <button type="button" style={estiloBtn(COR.primaria, gerando)} onClick={handleBaixarPdf} disabled={gerando}>{gerando ? "Gerando…" : "Baixar PDF"}</button>
+        <button type="button" style={estiloBtn(COR.sucesso, gerando)} onClick={handleEnviarPdf} disabled={gerando}>{gerando ? "Gerando…" : "Enviar PDF (WhatsApp)"}</button>
+        <button type="button" style={estiloBtn(COR.laranja, gerando)} onClick={handleEnviarEmailPdf} disabled={gerando}>{gerando ? "Gerando…" : "E-mail (PDF)"}</button>
         <button type="button" style={estiloBtn(COR.azul)} onClick={handleEmailTexto}>E-mail (texto)</button>
       </div>
 
       {aviso && <div style={styles.avisoBox} className="no-print">{aviso}</div>}
 
       <p style={styles.notaAcoes} className="no-print">
-        "Enviar PDF (WhatsApp)" anexa o arquivo de verdade no <strong>celular</strong> (menu Compartilhar do sistema).
-        No <strong>computador</strong>, o navegador não anexa por link: o PDF é baixado e o WhatsApp abre com o texto para você anexá-lo.
-        "E-mail (PDF)" envia o anexo pelo servidor — <strong>só funciona no app publicado</strong> (a função da pasta api/ não roda no <code>vite dev</code> sozinho).
+        "Enviar PDF (WhatsApp)" anexa o arquivo no <strong>celular</strong> (menu Compartilhar). No <strong>computador</strong>, o PDF é baixado e o WhatsApp abre com o texto para anexar.
+        "E-mail (PDF)" envia pelo servidor — <strong>só funciona no app publicado</strong>.
       </p>
     </div>
   );
