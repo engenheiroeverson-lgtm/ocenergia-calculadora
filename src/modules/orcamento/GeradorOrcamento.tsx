@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from "react";
-import { jsPDF } from "jspdf";          // npm i jspdf  (verifique a API na versão instalada)
+import React, { useMemo, useRef, useState } from "react";
+import { jsPDF } from "jspdf";          // npm i jspdf
 import html2canvas from "html2canvas";  // npm i html2canvas
+import { lerOrcamentoFornecedor } from "./lerOrcamentoFornecedor"; // leitor de PDF de fornecedor
 
 /**
  * GeradorOrcamento.tsx
@@ -9,22 +10,11 @@ import html2canvas from "html2canvas";  // npm i html2canvas
  *
  * AÇÕES:
  *   - Imprimir / Salvar PDF (window.print)
- *   - Baixar PDF (jsPDF + html2canvas -> Blob -> download)
- *   - Enviar PDF (WhatsApp/Compartilhar): no celular usa navigator.share com
- *     o ARQUIVO anexado; no desktop baixa o PDF e abre o WhatsApp Web (texto).
- *   - WhatsApp (texto) e E-mail (texto): atalhos rápidos via wa.me / mailto.
- *
- * DEPENDÊNCIAS (instalar):  npm i jspdf html2canvas
- *   (ambas trazem os próprios tipos; não precisa de @types/*)
- *
- * NOTAS HONESTAS:
- *   - wa.me / mailto carregam SOMENTE TEXTO. O anexo real de PDF só ocorre
- *     via Web Share API (navigator.share com files) em navegadores que a
- *     suportem — na prática, celulares Android/iOS modernos.
- *   - O PDF gerado é RASTERIZADO (imagem do documento). Texto não fica
- *     selecionável. Para PDF vetorial, migrar para @react-pdf/renderer.
- *   - Descrições muito longas geram múltiplas páginas (paginação simples
- *     por recorte de imagem). Layouts muito altos podem ficar apertados.
+ *   - Baixar PDF (jsPDF + html2canvas -> Blob -> download)  [imagem JPEG, leve]
+ *   - Enviar PDF (WhatsApp/Compartilhar): celular usa navigator.share (arquivo);
+ *     desktop baixa o PDF e abre o WhatsApp Web (texto).
+ *   - E-mail (PDF) via backend /api/enviar-orcamento ; E-mail (texto) via mailto.
+ *   - Importar PDF do FORNECEDOR -> extrai itens (descrição + valor) para revisão.
  *
  * Definição de "margem":
  *   - "markup": PV = Custo * (1 + m)      "venda": PV = Custo / (1 - m)
@@ -42,7 +32,7 @@ const EMPRESA = {
   emails: ["loja@ocenergiasolar.com.br", "financeiro@ocenergiasolar.com.br"],
   endereco: "Av. Marechal Rondon, 998 - Centro, Barra do Bugres - MT, 78390-000",
   validadeDias: 15,
-  logoSrc: "/LOGO_OCENERGIA01.png", // em public/ (mesma origem -> html2canvas captura)
+  logoSrc: "/LOGO_OCENERGIA01.png",
 };
 
 const COR = {
@@ -62,6 +52,12 @@ const COR = {
 
 type ModoMargem = "markup" | "venda";
 
+// Linha editável da importação do fornecedor (valor como texto para edição sem jank).
+interface LinhaImport {
+  descricao: string;
+  valorTexto: string;
+}
+
 const brl = (v: number): string =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
     Number.isFinite(v) ? v : 0
@@ -69,6 +65,9 @@ const brl = (v: number): string =>
 
 const dataPtBr = (d: Date): string =>
   new Intl.DateTimeFormat("pt-BR", { dateStyle: "long" }).format(d);
+
+const parseValor = (s: string): number =>
+  parseFloat(s.replace(/\./g, "").replace(",", ".")) || 0;
 
 interface ResultadoCalculo {
   preco: number;
@@ -97,8 +96,6 @@ function sanitizarTelefone(tel: string): string {
   return d;
 }
 
-// Estilos dinâmicos ficam FORA do objeto `styles` (que é Record<string, CSSProperties>
-// e não pode conter funções). Devolvem CSSProperties calculado por estado.
 const estiloToggle = (ativo: boolean): React.CSSProperties => ({
   flex: 1,
   padding: "8px 10px",
@@ -149,6 +146,14 @@ export default function GeradorOrcamento(): React.ReactElement {
   const [gerando, setGerando] = useState<boolean>(false);
   const [aviso, setAviso] = useState<string | null>(null);
 
+  // Importação de PDF do fornecedor
+  const inputPdfRef = useRef<HTMLInputElement>(null);
+  const [importando, setImportando] = useState<boolean>(false);
+  const [itensImportados, setItensImportados] = useState<LinhaImport[]>([]);
+  const [textoBrutoImport, setTextoBrutoImport] = useState<string>("");
+  const [mostrarTextoBruto, setMostrarTextoBruto] = useState<boolean>(false);
+  const [avisoImport, setAvisoImport] = useState<string | null>(null);
+
   const custoNum = parseFloat(custo.replace(",", ".")) || 0;
   const margemNum = parseFloat(margem.replace(",", ".")) || 0;
 
@@ -163,6 +168,8 @@ export default function GeradorOrcamento(): React.ReactElement {
       : `Preço = Custo ÷ (1 − ${margemNum}%) = ${brl(custoNum)} ÷ ${(1 - margemNum / 100).toFixed(4)}`;
 
   const nomeArquivo = `Orcamento-${(numero || "sem-numero").replace(/[^\w-]/g, "_")}.pdf`;
+
+  const totalImportado = itensImportados.reduce((s, it) => s + parseValor(it.valorTexto), 0);
 
   const montarResumo = (): string =>
     [
@@ -179,7 +186,7 @@ export default function GeradorOrcamento(): React.ReactElement {
       EMPRESA.emails[0],
     ].join("\n");
 
-  /** Renderiza o #orcamento-doc em um PDF A4 e devolve o Blob. */
+  /** Renderiza o #orcamento-doc em um PDF A4 (imagem JPEG, leve) e devolve o Blob. */
   async function gerarPdfBlob(): Promise<Blob> {
     const el = document.getElementById("orcamento-doc");
     if (!el) throw new Error("Documento não encontrado na página.");
@@ -196,17 +203,17 @@ export default function GeradorOrcamento(): React.ReactElement {
 
     const imgW = pageW;
     const imgH = (canvas.height * imgW) / canvas.width;
-    const imgData = canvas.toDataURL("image/png");
+    // JPEG (qualidade 0.85) em vez de PNG: arquivo bem menor, evita HTTP 413 no e-mail.
+    const imgData = canvas.toDataURL("image/jpeg", 0.85);
 
-    // Paginação simples: desloca a mesma imagem para cima a cada página.
     let heightLeft = imgH;
     let position = 0;
-    pdf.addImage(imgData, "PNG", 0, position, imgW, imgH);
+    pdf.addImage(imgData, "JPEG", 0, position, imgW, imgH);
     heightLeft -= pageH;
     while (heightLeft > 0) {
       position -= pageH;
       pdf.addPage();
-      pdf.addImage(imgData, "PNG", 0, position, imgW, imgH);
+      pdf.addImage(imgData, "JPEG", 0, position, imgW, imgH);
       heightLeft -= pageH;
     }
 
@@ -236,7 +243,64 @@ export default function GeradorOrcamento(): React.ReactElement {
     });
   }
 
-  // === Ações ===
+  // === Importação do PDF do fornecedor ===
+  const handleArquivoPdf = async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvisoImport(null);
+    setImportando(true);
+    setItensImportados([]);
+    setTextoBrutoImport("");
+    try {
+      const r = await lerOrcamentoFornecedor(file);
+      setItensImportados(
+        r.itens.map((it) => ({
+          descricao: it.descricao,
+          valorTexto: it.valor.toFixed(2).replace(".", ","),
+        }))
+      );
+      setTextoBrutoImport(r.textoBruto);
+      setAvisoImport(r.aviso);
+    } catch (err) {
+      setAvisoImport("Não foi possível ler o PDF. Verifique se é um PDF com texto (não escaneado).");
+      console.error("[orcamento] erro ao ler PDF do fornecedor:", err);
+    } finally {
+      setImportando(false);
+      if (inputPdfRef.current) inputPdfRef.current.value = "";
+    }
+  };
+
+  const atualizarItemImportado = (
+    i: number,
+    campo: "descricao" | "valorTexto",
+    valor: string
+  ): void => {
+    setItensImportados((prev) =>
+      prev.map((item, idx) => (idx === i ? { ...item, [campo]: valor } : item))
+    );
+  };
+
+  const removerItemImportado = (i: number): void => {
+    setItensImportados((prev) => prev.filter((_, idx) => idx !== i));
+  };
+
+  const aplicarItensImportados = (): void => {
+    if (itensImportados.length === 0) return;
+    const linhas = itensImportados.map((it) => it.descricao.trim()).filter(Boolean).join("\n");
+    setDescricao((prev) => (prev.trim() ? prev + "\n" + linhas : linhas));
+    setCusto(totalImportado.toFixed(2)); // soma dos valores do fornecedor = custo
+    setAvisoImport(
+      `Aplicado: ${itensImportados.length} item(ns). Custo preenchido com ${brl(totalImportado)}.`
+    );
+  };
+
+  const limparImport = (): void => {
+    setItensImportados([]);
+    setTextoBrutoImport("");
+    setAvisoImport(null);
+  };
+
+  // === Ações de saída ===
   const handleImprimir = (): void => window.print();
 
   const handleBaixarPdf = async (): Promise<void> => {
@@ -260,7 +324,6 @@ export default function GeradorOrcamento(): React.ReactElement {
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
-  /** Caminho "anexar de verdade": Web Share com arquivo (celular). Senão, baixa + WhatsApp texto. */
   const handleEnviarPdf = async (): Promise<void> => {
     setAviso(null);
     setGerando(true);
@@ -273,19 +336,13 @@ export default function GeradorOrcamento(): React.ReactElement {
       };
 
       if (nav.canShare && nav.canShare({ files: [file] }) && typeof nav.share === "function") {
-        await nav.share({
-          files: [file],
-          title: `Proposta nº ${numero}`,
-          text: montarResumo(),
-        });
+        await nav.share({ files: [file], title: `Proposta nº ${numero}`, text: montarResumo() });
       } else {
-        // Desktop / sem suporte: baixa o PDF e abre o WhatsApp com o texto.
         baixarBlob(blob, nomeArquivo);
         setAviso("Seu dispositivo não anexa arquivo direto. Baixei o PDF — anexe-o na conversa do WhatsApp que vou abrir.");
         abrirWhatsAppTexto();
       }
     } catch (e) {
-      // navigator.share lança se o usuário cancelar; tratamos como silencioso nesse caso.
       const erroNome = (e as { name?: string } | undefined)?.name;
       if (erroNome !== "AbortError") {
         setAviso("Não foi possível compartilhar o PDF. Tente 'Baixar PDF' e anexar manualmente.");
@@ -303,7 +360,6 @@ export default function GeradorOrcamento(): React.ReactElement {
     window.location.href = `mailto:${to}?subject=${assunto}&body=${corpo}`;
   };
 
-  /** Envia o PDF anexado por e-mail via backend /api/enviar-orcamento. Requer deploy (vercel). */
   const handleEnviarEmailPdf = async (): Promise<void> => {
     setAviso(null);
     if (!emailCliente.trim()) {
@@ -328,6 +384,8 @@ export default function GeradorOrcamento(): React.ReactElement {
       const data: { ok?: boolean; error?: string } | null = await resp.json().catch(() => null);
       if (resp.ok && data?.ok) {
         setAviso(`PDF enviado por e-mail para ${emailCliente.trim()}.`);
+      } else if (resp.status === 413) {
+        setAviso("O PDF ficou grande demais para o envio. Reduza a descrição ou o número de páginas.");
       } else {
         setAviso(`Não foi possível enviar: ${data?.error ?? `HTTP ${resp.status}`}.`);
       }
@@ -353,6 +411,19 @@ export default function GeradorOrcamento(): React.ReactElement {
     ajuda: { fontSize: 11, color: COR.cinza, marginTop: 6, lineHeight: 1.4 },
     formula: { fontSize: 11, color: COR.azul, marginTop: 8, fontFamily: "monospace", wordBreak: "break-all" },
     erro: { marginTop: 10, padding: "8px 10px", background: "#FDECEA", border: "1px solid #F5C6CB", borderRadius: 8, color: "#922B21", fontSize: 13 },
+    // Importação fornecedor
+    importBox: { marginBottom: 14, padding: 14, border: `1px dashed ${COR.azul}`, borderRadius: 8, background: "#F5FAFF" },
+    importTitulo: { fontSize: 13, fontWeight: 700, color: COR.primaria, marginBottom: 8 },
+    importBtn: { padding: "10px 14px", fontSize: 13, fontWeight: 700, color: COR.branco, background: COR.azul, border: "none", borderRadius: 8, cursor: "pointer" },
+    itemRow: { display: "flex", gap: 6, alignItems: "center", marginTop: 6 },
+    itemDesc: { flex: "1 1 auto", minWidth: 0, padding: "6px 8px", fontSize: 12, border: `1px solid ${COR.borda}`, borderRadius: 6, color: COR.escuro, boxSizing: "border-box" },
+    itemValor: { width: 90, padding: "6px 8px", fontSize: 12, border: `1px solid ${COR.borda}`, borderRadius: 6, color: COR.escuro, boxSizing: "border-box" },
+    itemRemover: { width: 28, height: 28, flex: "0 0 auto", border: "none", borderRadius: 6, background: "#FDECEA", color: "#922B21", cursor: "pointer", fontWeight: 700 },
+    importAcoes: { display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap", alignItems: "center" },
+    textoBrutoBox: { marginTop: 8, maxHeight: 160, overflow: "auto", fontSize: 11, fontFamily: "monospace", whiteSpace: "pre-wrap", background: COR.branco, border: `1px solid ${COR.borda}`, borderRadius: 6, padding: 8, color: COR.cinza },
+    linkBtn: { background: "none", border: "none", color: COR.azul, cursor: "pointer", fontSize: 12, textDecoration: "underline", padding: 0 },
+    avisoImportBox: { marginTop: 8, fontSize: 12, color: "#8A5A00", background: "#FEF6E7", border: `1px solid ${COR.amarelo}`, borderRadius: 6, padding: "6px 8px" },
+    // Documento
     doc: { flex: "2 1 520px", minWidth: 360, background: COR.branco, border: `1px solid ${COR.borda}`, borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 3px rgba(16,24,40,0.06)" },
     cabecalho: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, padding: 24, background: COR.primaria, color: COR.branco },
     logo: { height: 56, objectFit: "contain", background: "transparent" },
@@ -418,6 +489,65 @@ export default function GeradorOrcamento(): React.ReactElement {
           <input style={styles.input} inputMode="email" value={emailCliente} onChange={(e) => setEmailCliente(e.target.value)} placeholder="cliente@exemplo.com" />
         </div>
 
+        {/* IMPORTAR PDF DO FORNECEDOR */}
+        <div style={styles.importBox}>
+          <div style={styles.importTitulo}>Importar PDF do fornecedor (opcional)</div>
+          <input ref={inputPdfRef} type="file" accept="application/pdf" style={{ display: "none" }} onChange={handleArquivoPdf} />
+          <button
+            type="button"
+            style={{ ...styles.importBtn, opacity: importando ? 0.6 : 1, cursor: importando ? "not-allowed" : "pointer" }}
+            onClick={() => inputPdfRef.current?.click()}
+            disabled={importando}
+          >
+            {importando ? "Lendo PDF…" : "Selecionar PDF do fornecedor"}
+          </button>
+
+          {avisoImport && <div style={styles.avisoImportBox}>{avisoImport}</div>}
+
+          {itensImportados.length > 0 && (
+            <>
+              {itensImportados.map((it, i) => (
+                <div key={i} style={styles.itemRow}>
+                  <input
+                    style={styles.itemDesc}
+                    value={it.descricao}
+                    onChange={(e) => atualizarItemImportado(i, "descricao", e.target.value)}
+                    placeholder="Descrição"
+                  />
+                  <input
+                    style={styles.itemValor}
+                    value={it.valorTexto}
+                    onChange={(e) => atualizarItemImportado(i, "valorTexto", e.target.value)}
+                    placeholder="0,00"
+                    inputMode="decimal"
+                  />
+                  <button type="button" style={styles.itemRemover} onClick={() => removerItemImportado(i)} title="Remover">×</button>
+                </div>
+              ))}
+              <div style={styles.importAcoes}>
+                <button type="button" style={styles.importBtn} onClick={aplicarItensImportados}>
+                  Aplicar no orçamento (custo {brl(totalImportado)})
+                </button>
+                <button type="button" style={styles.linkBtn} onClick={limparImport}>Limpar</button>
+              </div>
+            </>
+          )}
+
+          {textoBrutoImport && (
+            <div>
+              <button type="button" style={{ ...styles.linkBtn, marginTop: 8 }} onClick={() => setMostrarTextoBruto((v) => !v)}>
+                {mostrarTextoBruto ? "Ocultar texto lido" : "Ver texto lido (conferência)"}
+              </button>
+              {mostrarTextoBruto && <div style={styles.textoBrutoBox}>{textoBrutoImport}</div>}
+            </div>
+          )}
+
+          <p style={{ ...styles.ajuda, marginTop: 8 }}>
+            Os valores lidos viram o <strong>custo</strong> (a margem é aplicada por cima) e não aparecem
+            para o cliente. Confira cada linha antes de aplicar — leitura automática pode errar.
+          </p>
+        </div>
+
         <div style={styles.grupo}>
           <label style={styles.label}>Descrição / itens (cole aqui)</label>
           <textarea style={styles.textarea} value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder={"Cole aqui a descrição do serviço/material.\nCada linha aparece no orçamento."} />
@@ -449,8 +579,7 @@ export default function GeradorOrcamento(): React.ReactElement {
 
         {erro && <div style={styles.erro}>{erro}</div>}
 
-        {/* Resumo financeiro INTERNO — visível só na tela, nunca impresso/no PDF
-            (o painel inteiro tem className="no-print"). Não vai para o cliente. */}
+        {/* Resumo financeiro INTERNO — visível só na tela (painel é no-print). Não vai ao cliente. */}
         {custoNum > 0 && !erro && (
           <div style={styles.resumoInterno}>
             <div style={styles.resumoInternoTitulo}>Resumo interno (não aparece no orçamento do cliente)</div>
@@ -467,8 +596,8 @@ export default function GeradorOrcamento(): React.ReactElement {
         <header style={styles.cabecalho}>
           <img src={EMPRESA.logoSrc} alt={EMPRESA.nomeFantasia} style={styles.logo} />
           <div style={styles.empresaInfo}>
-          <div style={styles.empresaNome}>{EMPRESA.nomeFantasia}</div>
-<div style={{ fontSize: 10, opacity: 0.85, marginBottom: 2 }}>{EMPRESA.razaoSocial}</div>
+            <div style={styles.empresaNome}>{EMPRESA.nomeFantasia}</div>
+            <div style={{ fontSize: 10, opacity: 0.85, marginBottom: 2 }}>{EMPRESA.razaoSocial}</div>
             <div>CNPJ: {EMPRESA.cnpj} &nbsp;|&nbsp; IE: {EMPRESA.ie}</div>
             <div>{EMPRESA.telefones.join("  •  ")}</div>
             <div>{EMPRESA.emails.join("  •  ")}</div>
