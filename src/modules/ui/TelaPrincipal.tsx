@@ -2,7 +2,7 @@
 // SHELL multi-módulo da Plataforma OCENERGIA.
 //
 // Hierarquia em 3 níveis (substitui o plano achatado de abas):
-//   Nível 1 — MÓDULO         : seletor de topo (5 módulos; inativos = "em breve")
+//   Nível 1 — MÓDULO         : seletor de topo (módulos; inativos = "em breve")
 //   Nível 2 — PERFIL         : toggle Leigo (B2C) / Profissional (B2B)
 //   Nível 3 — ENTRADA        : sub-abas internas (hoje só o módulo de Capacitores)
 //
@@ -17,8 +17,9 @@ import UploadFatura from './UploadFatura';
 import UploadRelatorioMassa from './UploadRelatorioMassa';
 import CalculadoraHibridaFP from './CalculadoraHibridaFP';
 import PaginaDemanda from '../demanda/PaginaDemanda';
+import GeradorOrcamento from '../orcamento/GeradorOrcamento'; // [+] novo módulo de Orçamento
 
-type Modulo = 'offgrid' | 'bess' | 'capacitores' | 'ongrid' | 'residencial';
+type Modulo = 'offgrid' | 'bess' | 'capacitores' | 'ongrid' | 'residencial' | 'orcamento';
 type Perfil = 'leigo' | 'profissional';
 type AbaEntrada = 'manual' | 'fatura' | 'massa' | 'hibrida';
 
@@ -30,7 +31,7 @@ interface ModuloDef {
   ativo: boolean; // false = "em breve" (botão desabilitado)
 }
 
-// Os 5 módulos do escopo. Off-grid (I) e os módulos IV/V entram como "em breve"
+// Os módulos do escopo. Off-grid (I) e os módulos IV/V entram como "em breve"
 // até serem portados/construídos neste repositório.
 const MODULOS: ModuloDef[] = [
   { id: 'offgrid', label: 'Solar Off-grid', titulo: 'Dimensionamento Solar Off-grid (sistemas isolados)', badges: ['Off-grid', 'Baterias LFP'], ativo: false },
@@ -38,6 +39,7 @@ const MODULOS: ModuloDef[] = [
   { id: 'capacitores', label: 'Fator de Potência', titulo: 'Calculadora industrial de Fator de Potência', badges: ['FP alvo: 0,95', 'BT / MT / AT'], ativo: true },
   { id: 'ongrid', label: 'Solar On-grid', titulo: 'Simulador Solar On-grid (Lei 14.300)', badges: ['Geração Distribuída', 'Lei 14.300'], ativo: false },
   { id: 'residencial', label: 'Residencial', titulo: 'Instalações residenciais (NBR 5410)', badges: ['NBR 5410', 'Quadro de cargas'], ativo: false },
+  { id: 'orcamento', label: 'Orçamento', titulo: 'Gerador de Orçamento (genérico)', badges: ['Proposta comercial', 'PDF'], ativo: true }, // [+] novo
 ];
 
 export default function TelaPrincipal() {
@@ -124,7 +126,10 @@ export default function TelaPrincipal() {
         </div>
 
         {/* ── Aviso honesto: visão Leigo ainda em construção ────────────── */}
-        {perfil === 'leigo' && (
+        {/* [~] não exibir para o módulo Orçamento: ele é uma ferramenta única, */}
+        {/*     sem split Leigo/Profissional — anunciar "versão simplificada"   */}
+        {/*     ali seria falso.                                                */}
+        {perfil === 'leigo' && modulo !== 'orcamento' && (
           <div style={styles.avisoLeigo}>
             A versão <strong>simplificada (Cliente / B2C)</strong> deste módulo está em
             desenvolvimento. Abaixo segue a <strong>versão técnica completa</strong>, que
@@ -173,6 +178,7 @@ export default function TelaPrincipal() {
           {modulo === 'capacitores' && abaEntrada === 'massa' && <UploadRelatorioMassa />}
           {modulo === 'capacitores' && abaEntrada === 'hibrida' && <CalculadoraHibridaFP />}
           {modulo === 'bess' && <PaginaDemanda />}
+          {modulo === 'orcamento' && <GeradorOrcamento />} {/* [+] novo módulo */}
         </div>
       </main>
 
