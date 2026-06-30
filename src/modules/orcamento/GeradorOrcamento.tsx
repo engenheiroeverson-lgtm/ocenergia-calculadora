@@ -467,7 +467,8 @@ export default function GeradorOrcamento(): React.ReactElement {
         <header style={styles.cabecalho}>
           <img src={EMPRESA.logoSrc} alt={EMPRESA.nomeFantasia} style={styles.logo} />
           <div style={styles.empresaInfo}>
-            <div style={styles.empresaNome}>{EMPRESA.razaoSocial}</div>
+          <div style={styles.empresaNome}>{EMPRESA.nomeFantasia}</div>
+<div style={{ fontSize: 10, opacity: 0.85, marginBottom: 2 }}>{EMPRESA.razaoSocial}</div>
             <div>CNPJ: {EMPRESA.cnpj} &nbsp;|&nbsp; IE: {EMPRESA.ie}</div>
             <div>{EMPRESA.telefones.join("  •  ")}</div>
             <div>{EMPRESA.emails.join("  •  ")}</div>
