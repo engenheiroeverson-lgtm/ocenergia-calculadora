@@ -134,7 +134,7 @@ export default function PaginaDemanda() {
   }
 
   function replicarNosMeses() {
-    const num = (s: string) => (s.trim() === '' ? null : Number(s.replace(',', '.')) || 0);
+    const num = (str: string) => (str.trim() === '' ? null : Number(str.replace(',', '.')) || 0);
     const cp = num(loteConsPonta);
     const cfp = num(loteConsForaPonta);
     const dm = num(loteDemMedida);
@@ -158,7 +158,7 @@ export default function PaginaDemanda() {
     setNomeArquivoImportado(arquivo.name);
     e.target.value = '';
   }
- function limparImportacao() {
+  function limparImportacao() {
     setNomeArquivoImportado(null);
   }
 
@@ -241,182 +241,203 @@ export default function PaginaDemanda() {
         <SimuladorRapidoBess />
       ) : (
         <>
-          {/* BLOCO 1 — Enquadramento */}
-          <section style={s.card}>
-            <h2 style={s.h2}>1. Enquadramento</h2>
-            <div style={s.row}>
+          {/* CSS de impressão (Item 4): só #area-impressao vai ao papel. */}
+          <style>{`
+            @media print {
+              body * { visibility: hidden !important; }
+              #area-impressao, #area-impressao * { visibility: visible !important; }
+              #area-impressao { position: absolute; left: 0; top: 0; width: 100%; }
+              #area-impressao input, #area-impressao select {
+                border: none !important; padding: 2px 0 !important; background: transparent !important;
+              }
+            }
+          `}</style>
+
+          {/* Barra de ações — NÃO vai para a impressão */}
+          <div style={s.toolbarImpressao}>
+            <button type="button" onClick={handleImprimir} style={s.imprimirBtn}>
+              Imprimir / Salvar em PDF
+            </button>
+          </div>
+
+          <div id="area-impressao">
+            {/* BLOCO 1 — Enquadramento */}
+            <section style={s.card}>
+              <h2 style={s.h2}>1. Enquadramento</h2>
+              <div style={s.row}>
+                <div style={s.field}>
+                  <label style={s.label}>Modalidade tarifária</label>
+                  <select value={modalidade} onChange={(e) => setModalidade(e.target.value as Modalidade)} style={s.input}>
+                    <option value="Verde">Verde (demanda única)</option>
+                    <option value="Azul">Azul (ponta + fora-ponta)</option>
+                  </select>
+                </div>
+              </div>
               <div style={s.field}>
-                <label style={s.label}>Modalidade tarifária</label>
-                <select value={modalidade} onChange={(e) => setModalidade(e.target.value as Modalidade)} style={s.input}>
-                  <option value="Verde">Verde (demanda única)</option>
-                  <option value="Azul">Azul (ponta + fora-ponta)</option>
-                </select>
+                <label style={s.label}>A empresa possui processos contínuos que não podem parar por nem 1 segundo?</label>
+                <div style={s.toggleRow}>
+                  <button type="button" onClick={() => setCargaCritica(true)} style={cargaCritica ? s.toggleOn : s.toggleOff}>Sim — carga crítica</button>
+                  <button type="button" onClick={() => setCargaCritica(false)} style={!cargaCritica ? s.toggleOn : s.toggleOff}>Não — foco em economia</button>
+                </div>
               </div>
-            </div>
-            <div style={s.field}>
-              <label style={s.label}>A empresa possui processos contínuos que não podem parar por nem 1 segundo?</label>
-              <div style={s.toggleRow}>
-                <button type="button" onClick={() => setCargaCritica(true)} style={cargaCritica ? s.toggleOn : s.toggleOff}>Sim — carga crítica</button>
-                <button type="button" onClick={() => setCargaCritica(false)} style={!cargaCritica ? s.toggleOn : s.toggleOff}>Não — foco em economia</button>
-              </div>
-            </div>
-          </section>
+            </section>
 
-          {/* BLOCO 2 — Histórico 12 meses */}
-          <section style={s.card}>
-            <div style={s.cardHead}>
-              <h2 style={s.h2}>2. Histórico de 12 meses</h2>
-              <div style={s.importWrap}>
-                <label style={s.uploadBtn}>
-                  Importar fatura (PDF)
-                  <input type="file" accept="application/pdf,image/*" style={{ display: 'none' }} onChange={handleImportarFatura} />
-                </label>
-                {nomeArquivoImportado && (
-                  <span style={s.badgeOk}>
-                    ?? Arquivo recebido: {nomeArquivoImportado} — leitura automática em breve
-                    <button type="button" onClick={limparImportacao} style={s.limparBtn}>Limpar</button>
-                  </span>
-                )}
+            {/* BLOCO 2 — Histórico 12 meses */}
+            <section style={s.card}>
+              <div style={s.cardHead}>
+                <h2 style={s.h2}>2. Histórico de 12 meses</h2>
+                <div style={s.importWrap}>
+                  <label style={s.uploadBtn}>
+                    Importar fatura (PDF)
+                    <input type="file" accept="application/pdf,image/*" style={{ display: 'none' }} onChange={handleImportarFatura} />
+                  </label>
+                  {nomeArquivoImportado && (
+                    <span style={s.badgeOk}>
+                      🟢 Arquivo recebido: {nomeArquivoImportado} — leitura automática em breve
+                      <button type="button" onClick={limparImportacao} style={s.limparBtn}>Limpar</button>
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
 
-            {/* Barra de preenchimento rápido / entrada única */}
-            <div style={s.loteBox}>
-              <span style={s.loteTitulo}>? Preenchimento Rápido / Entrada Única</span>
-              <span style={s.helper}>Preencha só o que quiser replicar; campos em branco mantêm o valor de cada mês.</span>
-              <div style={s.loteGrid}>
-                <div style={s.field}>
-                  <label style={s.labelSm}>Consumo Ponta (igual)</label>
-                  <input type="number" value={loteConsPonta} onChange={(e) => setLoteConsPonta(e.target.value)} placeholder="kWh" style={s.input} />
+              {/* Barra de preenchimento rápido / entrada única */}
+              <div style={s.loteBox}>
+                <span style={s.loteTitulo}>⚡ Preenchimento Rápido / Entrada Única</span>
+                <span style={s.helper}>Preencha só o que quiser replicar; campos em branco mantêm o valor de cada mês.</span>
+                <div style={s.loteGrid}>
+                  <div style={s.field}>
+                    <label style={s.labelSm}>Consumo Ponta (igual)</label>
+                    <input type="number" value={loteConsPonta} onChange={(e) => setLoteConsPonta(e.target.value)} placeholder="kWh" style={s.input} />
+                  </div>
+                  <div style={s.field}>
+                    <label style={s.labelSm}>Consumo Fora-P. (igual)</label>
+                    <input type="number" value={loteConsForaPonta} onChange={(e) => setLoteConsForaPonta(e.target.value)} placeholder="kWh" style={s.input} />
+                  </div>
+                  <div style={s.field}>
+                    <label style={s.labelSm}>Demanda Medida (igual)</label>
+                    <input type="number" value={loteDemMedida} onChange={(e) => setLoteDemMedida(e.target.value)} placeholder="kW" style={s.input} />
+                  </div>
+                  <div style={s.field}>
+                    <label style={s.labelSm}>Demanda Contratada (igual)</label>
+                    <input type="number" value={loteDemContratada} onChange={(e) => setLoteDemContratada(e.target.value)} placeholder="kW" style={s.input} />
+                  </div>
+                  <button type="button" onClick={replicarNosMeses} style={s.replicarBtn}>⚡ Replicar nos 12 Meses</button>
                 </div>
-                <div style={s.field}>
-                  <label style={s.labelSm}>Consumo Fora-P. (igual)</label>
-                  <input type="number" value={loteConsForaPonta} onChange={(e) => setLoteConsForaPonta(e.target.value)} placeholder="kWh" style={s.input} />
-                </div>
-                <div style={s.field}>
-                  <label style={s.labelSm}>Demanda Medida (igual)</label>
-                  <input type="number" value={loteDemMedida} onChange={(e) => setLoteDemMedida(e.target.value)} placeholder="kW" style={s.input} />
-                </div>
-                <div style={s.field}>
-                  <label style={s.labelSm}>Demanda Contratada (igual)</label>
-                  <input type="number" value={loteDemContratada} onChange={(e) => setLoteDemContratada(e.target.value)} placeholder="kW" style={s.input} />
-                </div>
-                <button type="button" onClick={replicarNosMeses} style={s.replicarBtn}>? Replicar nos 12 Meses</button>
               </div>
-            </div>
 
-            <div style={s.tableWrap}>
-              <table style={s.table}>
-                <thead>
-                  <tr>
-                    <th style={s.th}>Mês</th>
-                    <th style={s.th}>Cons. Ponta (kWh)</th>
-                    <th style={s.th}>Cons. Fora-P. (kWh)</th>
-                    {azul && <th style={s.th}>Dem. Med. Ponta</th>}
-                    {azul && <th style={s.th}>Dem. Contr. Ponta</th>}
-                    <th style={s.th}>Dem. Med. {azul ? 'Fora-P.' : 'Única'}</th>
-                    <th style={s.th}>Dem. Contr. {azul ? 'Fora-P.' : 'Única'}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {meses.map((m, i) => (
-                    <tr key={m.referencia}>
-                      <td style={s.td}><input value={m.referencia} onChange={(e) => editarMes(i, 'referencia', e.target.value)} style={s.cellTxt} /></td>
-                      <td style={s.td}><input type="number" value={m.consumoPontaKwh} onChange={(e) => editarMes(i, 'consumoPontaKwh', e.target.value)} style={s.cell} /></td>
-                      <td style={s.td}><input type="number" value={m.consumoForaPontaKwh} onChange={(e) => editarMes(i, 'consumoForaPontaKwh', e.target.value)} style={s.cell} /></td>
-                      {azul && <td style={s.td}><input type="number" value={m.demandaMedidaPontaKw} onChange={(e) => editarMes(i, 'demandaMedidaPontaKw', e.target.value)} style={s.cell} /></td>}
-                      {azul && <td style={s.td}><input type="number" value={m.demandaContratadaPontaKw} onChange={(e) => editarMes(i, 'demandaContratadaPontaKw', e.target.value)} style={s.cell} /></td>}
-                      <td style={s.td}><input type="number" value={m.demandaMedidaForaPontaKw} onChange={(e) => editarMes(i, 'demandaMedidaForaPontaKw', e.target.value)} style={s.cell} /></td>
-                      <td style={s.td}><input type="number" value={m.demandaContratadaForaPontaKw} onChange={(e) => editarMes(i, 'demandaContratadaForaPontaKw', e.target.value)} style={s.cell} /></td>
+              <div style={s.tableWrap}>
+                <table style={s.table}>
+                  <thead>
+                    <tr>
+                      <th style={s.th}>Mês</th>
+                      <th style={s.th}>Cons. Ponta (kWh)</th>
+                      <th style={s.th}>Cons. Fora-P. (kWh)</th>
+                      {azul && <th style={s.th}>Dem. Med. Ponta</th>}
+                      {azul && <th style={s.th}>Dem. Contr. Ponta</th>}
+                      <th style={s.th}>Dem. Med. {azul ? 'Fora-P.' : 'Única'}</th>
+                      <th style={s.th}>Dem. Contr. {azul ? 'Fora-P.' : 'Única'}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          {/* BLOCO 3 — Tarifas */}
-          <section style={s.card}>
-            <h2 style={s.h2}>3. Tarifas (MT) — ANEEL automático</h2>
-            <div style={s.row}>
-              <div style={s.field}>
-                <label style={s.label}>Distribuidora</label>
-                <select value={agente} onChange={(e) => setAgente(e.target.value)} style={s.input}>
-                  {distribuidoras.map((a) => <option key={a} value={a}>{a === 'EMT' ? 'Energisa Mato Grosso (EMT)' : a}</option>)}
-                </select>
+                  </thead>
+                  <tbody>
+                    {meses.map((m, i) => (
+                      <tr key={m.referencia}>
+                        <td style={s.td}><input value={m.referencia} onChange={(e) => editarMes(i, 'referencia', e.target.value)} style={s.cellTxt} /></td>
+                        <td style={s.td}><input type="number" value={m.consumoPontaKwh} onChange={(e) => editarMes(i, 'consumoPontaKwh', e.target.value)} style={s.cell} /></td>
+                        <td style={s.td}><input type="number" value={m.consumoForaPontaKwh} onChange={(e) => editarMes(i, 'consumoForaPontaKwh', e.target.value)} style={s.cell} /></td>
+                        {azul && <td style={s.td}><input type="number" value={m.demandaMedidaPontaKw} onChange={(e) => editarMes(i, 'demandaMedidaPontaKw', e.target.value)} style={s.cell} /></td>}
+                        {azul && <td style={s.td}><input type="number" value={m.demandaContratadaPontaKw} onChange={(e) => editarMes(i, 'demandaContratadaPontaKw', e.target.value)} style={s.cell} /></td>}
+                        <td style={s.td}><input type="number" value={m.demandaMedidaForaPontaKw} onChange={(e) => editarMes(i, 'demandaMedidaForaPontaKw', e.target.value)} style={s.cell} /></td>
+                        <td style={s.td}><input type="number" value={m.demandaContratadaForaPontaKw} onChange={(e) => editarMes(i, 'demandaContratadaForaPontaKw', e.target.value)} style={s.cell} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div style={s.field}>
-                <label style={s.label}>Subgrupo</label>
-                <select value={subgrupo} onChange={(e) => setSubgrupo(e.target.value)} style={s.input}>
-                  {['A1', 'A2', 'A3', 'A3a', 'A4', 'AS'].map((x) => <option key={x} value={x}>{x}</option>)}
-                </select>
-              </div>
-            </div>
-            {notaTarifas && <span style={s.helper}>{buscandoTarifas ? 'Consultando ANEEL…' : notaTarifas}</span>}
-            <div style={s.row}>
-              <TarifaInput label="TE Ponta (R$/kWh)" v={tarifas.tePonta} on={(x) => editarTarifa('tePonta', x)} />
-              <TarifaInput label="TUSD Energia Ponta" v={tarifas.tusdEnergiaPonta} on={(x) => editarTarifa('tusdEnergiaPonta', x)} />
-              <TarifaInput label="TE Fora-Ponta (R$/kWh)" v={tarifas.teForaPonta} on={(x) => editarTarifa('teForaPonta', x)} />
-              <TarifaInput label="TUSD Energia Fora-P." v={tarifas.tusdEnergiaForaPonta} on={(x) => editarTarifa('tusdEnergiaForaPonta', x)} />
-              {azul && <TarifaInput label="TUSD Demanda Ponta (R$/kW)" v={tarifas.tusdDemandaPonta} on={(x) => editarTarifa('tusdDemandaPonta', x)} />}
-              <TarifaInput label={`TUSD Demanda ${azul ? 'Fora-P.' : 'Única'} (R$/kW)`} v={tarifas.tusdDemandaForaPonta} on={(x) => editarTarifa('tusdDemandaForaPonta', x)} />
-            </div>
-          </section>
+            </section>
 
-          {/* BLOCO 4 — Resultados */}
-          <section style={s.card}>
-            <h2 style={s.h2}>4. Resultado da simulação</h2>
-            <div style={s.cardsGrid}>
-              <ResCard titulo="Diagnóstico de ultrapassagem" destaque={resultado.ultrapassagemDetectada}>
-                {resultado.ultrapassagemDetectada
-                  ? <>Ultrapassagem em <strong>{resultado.mesesComUltrapassagem.length}</strong> meses: {resultado.mesesComUltrapassagem.join(', ')}.</>
-                  : <>Nenhuma ultrapassagem detectada.</>}
-              </ResCard>
-              <ResCard titulo="Dimensionamento do BESS">
-                Potência: <strong>{resultado.dimensionamento.potenciaKw} kW</strong><br />
-                Energia: <strong>{resultado.dimensionamento.energiaKwh} kWh</strong><br />
-                <span style={s.helper}>Demanda contratada ótima: {resultado.demandaContratadaOtimaForaPonta} kW</span>
-              </ResCard>
-              <ResCard titulo="Topologia recomendada (WEG)">
-                <strong>{resultado.topologia.tipo}</strong><br />
-                {resultado.topologia.conexao} · {resultado.topologia.tempoAtuacao}<br />
-                <span style={s.helper}>{resultado.topologia.enfase}</span>
-              </ResCard>
-              <ResCard titulo="Hardware WEG sugerido">{resultado.hardware.descricao}</ResCard>
-            </div>
-
-            <div style={s.cardsGrid}>
-              <Metrica titulo="Fatura atual (ano)" valor={fmtBRL(resultado.financeiro.faturaAtualAnual)} />
-              <Metrica titulo="Fatura otimizada (ano)" valor={fmtBRL(resultado.financeiro.faturaOtimizadaAnual)} />
-              <Metrica titulo="Economia anual" valor={fmtBRL(resultado.financeiro.economiaAnual)} destaque />
-              <Metrica titulo="Redução" valor={`${resultado.financeiro.reducaoPercentual.toFixed(1)}%`} destaque />
-            </div>
-
-            <div style={s.row}>
-              <div style={s.field}>
-                <label style={s.label}>CAPEX do BESS (R$) — para o payback</label>
-                <input value={capexStr} onChange={(e) => setCapexStr(e.target.value)} placeholder="ex.: 1.200.000" style={s.input} />
-              </div>
-              <div style={s.field}>
-                <label style={s.label}>Payback estimado</label>
-                <div style={s.paybackBox}>
-                  {resultado.financeiro.paybackAnos != null
-                    ? <strong>{resultado.financeiro.paybackAnos.toFixed(1)} anos</strong>
-                    : <span style={s.helper}>Informe o CAPEX</span>}
+            {/* BLOCO 3 — Tarifas */}
+            <section style={s.card}>
+              <h2 style={s.h2}>3. Tarifas (MT) — ANEEL automático</h2>
+              <div style={s.row}>
+                <div style={s.field}>
+                  <label style={s.label}>Distribuidora</label>
+                  <select value={agente} onChange={(e) => setAgente(e.target.value)} style={s.input}>
+                    {distribuidoras.map((a) => <option key={a} value={a}>{a === 'EMT' ? 'Energisa Mato Grosso (EMT)' : a}</option>)}
+                  </select>
+                </div>
+                <div style={s.field}>
+                  <label style={s.label}>Subgrupo</label>
+                  <select value={subgrupo} onChange={(e) => setSubgrupo(e.target.value)} style={s.input}>
+                    {['A1', 'A2', 'A3', 'A3a', 'A4', 'AS'].map((x) => <option key={x} value={x}>{x}</option>)}
+                  </select>
                 </div>
               </div>
-            </div>
+              {notaTarifas && <span style={s.helper}>{buscandoTarifas ? 'Consultando ANEEL…' : notaTarifas}</span>}
+              <div style={s.row}>
+                <TarifaInput label="TE Ponta (R$/kWh)" v={tarifas.tePonta} on={(x) => editarTarifa('tePonta', x)} />
+                <TarifaInput label="TUSD Energia Ponta" v={tarifas.tusdEnergiaPonta} on={(x) => editarTarifa('tusdEnergiaPonta', x)} />
+                <TarifaInput label="TE Fora-Ponta (R$/kWh)" v={tarifas.teForaPonta} on={(x) => editarTarifa('teForaPonta', x)} />
+                <TarifaInput label="TUSD Energia Fora-P." v={tarifas.tusdEnergiaForaPonta} on={(x) => editarTarifa('tusdEnergiaForaPonta', x)} />
+                {azul && <TarifaInput label="TUSD Demanda Ponta (R$/kW)" v={tarifas.tusdDemandaPonta} on={(x) => editarTarifa('tusdDemandaPonta', x)} />}
+                <TarifaInput label={`TUSD Demanda ${azul ? 'Fora-P.' : 'Única'} (R$/kW)`} v={tarifas.tusdDemandaForaPonta} on={(x) => editarTarifa('tusdDemandaForaPonta', x)} />
+              </div>
+            </section>
 
-            <GraficoFluxoCaixa dados={resultado.financeiro.fluxoCaixa10Anos} />
+            {/* BLOCO 4 — Resultados */}
+            <section style={s.card}>
+              <h2 style={s.h2}>4. Resultado da simulação</h2>
+              <div style={s.cardsGrid}>
+                <ResCard titulo="Diagnóstico de ultrapassagem" destaque={resultado.ultrapassagemDetectada}>
+                  {resultado.ultrapassagemDetectada
+                    ? <>Ultrapassagem em <strong>{resultado.mesesComUltrapassagem.length}</strong> meses: {resultado.mesesComUltrapassagem.join(', ')}.</>
+                    : <>Nenhuma ultrapassagem detectada.</>}
+                </ResCard>
+                <ResCard titulo="Dimensionamento do BESS">
+                  Potência: <strong>{resultado.dimensionamento.potenciaKw} kW</strong><br />
+                  Energia: <strong>{resultado.dimensionamento.energiaKwh} kWh</strong><br />
+                  <span style={s.helper}>Demanda contratada ótima: {resultado.demandaContratadaOtimaForaPonta} kW</span>
+                </ResCard>
+                <ResCard titulo="Topologia recomendada (WEG)">
+                  <strong>{resultado.topologia.tipo}</strong><br />
+                  {resultado.topologia.conexao} · {resultado.topologia.tempoAtuacao}<br />
+                  <span style={s.helper}>{resultado.topologia.enfase}</span>
+                </ResCard>
+                <ResCard titulo="Hardware WEG sugerido">{resultado.hardware.descricao}</ResCard>
+              </div>
 
-            <div style={s.ganchos}>
-              <h3 style={s.h3}>Argumentos comerciais</h3>
-              <ul style={s.ul}>
-                <li><strong>C&I:</strong> arbitragem de ponta, peak shaving e correção de fator de potência sem gerador a diesel.</li>
-                <li><strong>Agronegócio:</strong> sistemas outdoor para pivôs de irrigação remotos e substituição de geradores a diesel.</li>
-              </ul>
-            </div>
-          </section>
+              <div style={s.cardsGrid}>
+                <Metrica titulo="Fatura atual (ano)" valor={fmtBRL(resultado.financeiro.faturaAtualAnual)} />
+                <Metrica titulo="Fatura otimizada (ano)" valor={fmtBRL(resultado.financeiro.faturaOtimizadaAnual)} />
+                <Metrica titulo="Economia anual" valor={fmtBRL(resultado.financeiro.economiaAnual)} destaque />
+                <Metrica titulo="Redução" valor={`${resultado.financeiro.reducaoPercentual.toFixed(1)}%`} destaque />
+              </div>
+
+              <div style={s.row}>
+                <div style={s.field}>
+                  <label style={s.label}>CAPEX do BESS (R$) — para o payback</label>
+                  <input value={capexStr} onChange={(e) => setCapexStr(e.target.value)} placeholder="ex.: 1.200.000" style={s.input} />
+                </div>
+                <div style={s.field}>
+                  <label style={s.label}>Payback estimado</label>
+                  <div style={s.paybackBox}>
+                    {resultado.financeiro.paybackAnos != null
+                      ? <strong>{resultado.financeiro.paybackAnos.toFixed(1)} anos</strong>
+                      : <span style={s.helper}>Informe o CAPEX</span>}
+                  </div>
+                </div>
+              </div>
+
+              <GraficoFluxoCaixa dados={resultado.financeiro.fluxoCaixa10Anos} />
+
+              <div style={s.ganchos}>
+                <h3 style={s.h3}>Argumentos comerciais</h3>
+                <ul style={s.ul}>
+                  <li><strong>C&amp;I:</strong> arbitragem de ponta, peak shaving e correção de fator de potência sem gerador a diesel.</li>
+                  <li><strong>Agronegócio:</strong> sistemas outdoor para pivôs de irrigação remotos e substituição de geradores a diesel.</li>
+                </ul>
+              </div>
+            </section>
+          </div>{/* fim #area-impressao */}
 
           {/* BLOCO 5 — Funil de leads */}
           <section style={s.card}>
@@ -437,7 +458,7 @@ export default function PaginaDemanda() {
           </section>
 
           {resultado.avisos.length > 0 && (
-            <div style={s.avisos}>{resultado.avisos.map((a, i) => <div key={i}>?? {a}</div>)}</div>
+            <div style={s.avisos}>{resultado.avisos.map((a, i) => <div key={i}>⚠️ {a}</div>)}</div>
           )}
         </>
       )}
@@ -510,6 +531,8 @@ const s: Record<string, React.CSSProperties> = {
   subAbas: { display: 'flex', gap: 8, flexWrap: 'wrap', borderBottom: '2px solid #D5E8F3', paddingBottom: 4 },
   subAba: { padding: '10px 18px', borderRadius: '10px 10px 0 0', border: '1px solid #D5E8F3', borderBottom: 'none', background: '#F4F6F9', color: '#475467', cursor: 'pointer', fontWeight: 700, fontSize: 14 },
   subAbaAtiva: { background: 'linear-gradient(135deg, #1B3A6B 0%, #2E86C1 100%)', color: '#FFFFFF', border: '1px solid transparent' },
+  toolbarImpressao: { display: 'flex', justifyContent: 'flex-end' },
+  imprimirBtn: { padding: '10px 16px', borderRadius: 10, border: '1px solid #2E86C1', background: '#FFFFFF', color: '#2E86C1', fontWeight: 700, fontSize: 14, cursor: 'pointer' },
   card: { padding: 16, borderRadius: 12, background: '#FFFFFF', border: '1px solid #D5E8F3', display: 'grid', gap: 12 },
   cardHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
   importWrap: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
