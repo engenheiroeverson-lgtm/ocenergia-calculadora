@@ -366,8 +366,10 @@ export default function GeradorOrcamento(): React.ReactElement {
     descricaoBox: { whiteSpace: "pre-wrap", fontSize: 14, lineHeight: 1.6, color: COR.escuro, marginBottom: 20, minHeight: 40 },
     totalBox: { background: COR.sucessoBg, border: `1px solid ${COR.sucesso}`, borderRadius: 10, padding: 20, textAlign: "right" },
     totalRotulo: { fontSize: 13, color: COR.cinza, marginBottom: 4 },
-    totalValor: { fontSize: 30, fontWeight: 800, color: COR.sucesso },
-    detalheValores: { fontSize: 12, color: COR.cinza, marginTop: 8, display: "flex", justifyContent: "flex-end", gap: 18, flexWrap: "wrap" },
+    totalValor: { fontSize: 24, fontWeight: 800, color: COR.sucesso },
+    resumoInterno: { marginTop: 14, padding: "12px 14px", background: "#FFF8E1", border: `1px dashed ${COR.amarelo}`, borderRadius: 8 },
+    resumoInternoTitulo: { fontSize: 11, fontWeight: 700, color: "#8A5A00", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.4 },
+    resumoInternoLinha: { display: "flex", justifyContent: "space-between", fontSize: 13, color: COR.escuro, padding: "3px 0" },
     rodape: { padding: "14px 24px", borderTop: `1px solid ${COR.borda}`, fontSize: 11, color: COR.cinza, textAlign: "center" },
     validade: { color: COR.laranja, fontWeight: 600, fontStyle: "italic" },
     acoes: { flex: "1 1 100%", display: "flex", flexWrap: "wrap", gap: 10 },
@@ -446,6 +448,18 @@ export default function GeradorOrcamento(): React.ReactElement {
         </div>
 
         {erro && <div style={styles.erro}>{erro}</div>}
+
+        {/* Resumo financeiro INTERNO — visível só na tela, nunca impresso/no PDF
+            (o painel inteiro tem className="no-print"). Não vai para o cliente. */}
+        {custoNum > 0 && !erro && (
+          <div style={styles.resumoInterno}>
+            <div style={styles.resumoInternoTitulo}>Resumo interno (não aparece no orçamento do cliente)</div>
+            <div style={styles.resumoInternoLinha}><span>Preço de venda</span><strong>{brl(preco)}</strong></div>
+            <div style={styles.resumoInternoLinha}><span>Custo</span><span>{brl(custoNum)}</span></div>
+            <div style={styles.resumoInternoLinha}><span>Lucro</span><span style={{ color: COR.sucesso, fontWeight: 700 }}>{brl(lucro)}</span></div>
+            <div style={styles.resumoInternoLinha}><span>Margem</span><span>{margemNum}% ({modo === "markup" ? "markup" : "sobre venda"})</span></div>
+          </div>
+        )}
       </section>
 
       {/* DOCUMENTO */}
@@ -481,11 +495,6 @@ export default function GeradorOrcamento(): React.ReactElement {
           <div style={styles.totalBox}>
             <div style={styles.totalRotulo}>Valor total</div>
             <div style={styles.totalValor}>{brl(preco)}</div>
-            <div style={styles.detalheValores}>
-              <span>Custo: {brl(custoNum)}</span>
-              <span>Margem: {margemNum}% ({modo === "markup" ? "markup" : "sobre venda"})</span>
-              <span>Lucro: {brl(lucro)}</span>
-            </div>
           </div>
         </div>
 
