@@ -122,3 +122,109 @@ Fonte: PDF oficial ANEEL (ren20211000.pdf), Seção VII, Art. 301, redação con
 - DECISÃO: abandonar a `revisao-1`. NÃO mesclar na main sem revisão arquivo a arquivo (o motorDemanda.ts refatorado dela NÃO passou pela validação do art. 301 e dava ERROR).
 - REGRA: um assistente por arquivo. Frentes paralelas só com escopo não-sobreposto e merge revisado.
 - Itens que estavam só na revisao-1 e voltam a ficar pendentes na main: remover [skip ci] do workflow; publicar grafias de 24/06 (319.093 reg). Produção hoje serve a versão de 22/06 (318.617 reg) — EMT presente, sem impacto para MT.
+
+---
+# RELATÓRIO DE SESSÃO — OCENERGIA Calculadora
+### Plataforma de Engenharia Energética
+> Data do relatório: 30/06/2026
+> Objetivo: registro completo do que foi feito, do estado atual e dos próximos passos, para continuidade em sessão nova.
+
+---
+
+## 1. O QUE FOI FEITO NESTA SESSÃO (entregue e confirmado no ar)
+
+| # | Entrega | Status | Evidência |
+|---|---------|--------|-----------|
+| 1 | **Impressão na Análise Detalhada (Módulo II)** — botão "Imprimir / Salvar em PDF" + `@media print` que imprime só `#area-impressao` (blocos 1–4), escondendo nav, sub-abas e formulário de lead | ✅ EM PRODUÇÃO | Commit `294cc541` READY; PDF de 3 páginas gerado e validado pelo usuário |
+| 2 | **`motorDemanda.ts` — validação REN 1.000/2021 art. 301** (comentários/avisos; cálculo já estava correto) | ✅ EM PRODUÇÃO | Commit `c3610bf0` READY |
+| 3 | **Workflow de grafias sem `[skip ci]`** — auto-publica o JSON a cada sync | ✅ PROVADO NA PRÁTICA | Commit `26fb586a`; o robô `github-actions[bot]` rodou `6f8efe2b` "chore: sincroniza grafias ANEEL" e disparou deploy READY sozinho |
+| 4 | **Restauração de emojis** (🟢 ⚡ ⚠️) que estavam como mojibake `??` na `PaginaDemanda.tsx` | ✅ EM PRODUÇÃO | Incluído no `294cc541` |
+| 5 | **Faxina de processo:** Codespaces Prebuild desligado; branch `revisao-1` e `cursor/*` deletadas | ✅ FEITO | Confirmado pelo usuário |
+| 6 | **Reunião do pacote de arquivos** para os próximos itens (parser, normalizador, UploadFatura, CadastroLead, package.json) | ✅ FEITO | Arquivos em mãos para a próxima sessão |
+
+### Detalhe técnico da impressão (item principal)
+- Técnica: `<style>` com `@media print` que faz `body * { visibility: hidden }` e revela só `#area-impressao` via `position: absolute`.
+- Autossuficiente: não precisou tocar a `TelaPrincipal`.
+- **Ressalva v1:** o teste real saiu em 3 páginas sem cortar conteúdo — funcionou. Se em faturas maiores cortar, trocar para estratégia com `.nao-imprimir` marcado na `TelaPrincipal`.
+
+---
+
+## 2. 🔴 BUG ENCONTRADO (descoberto pelo teste de impressão — PRIORIDADE)
+
+**Mapeamento de tarifas no Módulo II está pegando linhas erradas da ANEEL.**
+
+No PDF gerado, o bloco "3. Tarifas (MT) — ANEEL automático" mostrou:
+- TE Ponta = **0** (zerado — errado)
+- TUSD Energia Ponta = **1,6834** (alto demais — errado)
+- TE Fora-Ponta = **−0,01357** (negativa — impossível fisicamente)
+- TUSD Demanda Única = **34,03** ✅ (correta — bate com a fatura real EMT)
+
+**Impacto:** a tarifa de **energia** entra distorcida, então "Fatura atual (ano) R$ 363.875" e "Economia anual R$ 144.084" estão sobre base errada. A **demanda** e o **diagnóstico de ultrapassagem** (7 meses) usam dados corretos e estão OK.
+
+**Causa provável:** a função `montarTarifas()` em `PaginaDemanda.tsx` está mapeando as linhas retornadas pela ANEEL incorretamente (pegando rubrica errada / linha negativa de ajuste).
+
+**Para corrigir, na próxima sessão trazer:** `src/lib/buscarTarifaAneel.ts` (para ver o formato real retornado) + a `PaginaDemanda.tsx` atual (a função `montarTarifas`).
+
+---
+
+## 3. OBSERVAÇÃO SECUNDÁRIA (não urgente)
+
+**Seleção de hardware WEG superdimensiona.** Para necessidade de 171 kW / 570 kWh, sugeriu "3× BSCW400H (375 kW / 783 kWh)". Revisar a lógica de `selecionarHardware` no `motorDemanda.ts` — 1 a 2 unidades cobririam. Secundário perto do bug de tarifas.
+
+---
+
+## 4. ESTADO ATUAL DO PROJETO (referência)
+
+**Repo:** `github.com/engenheiroeverson-lgtm/ocenergia-calculadora` (público) → `ocenergia-calculadora.vercel.app`
+**Stack:** Vite + React 19 + TS + PWA, estilos inline (sem Tailwind). Build `tsc -b && vite build`; `api/*.ts` à parte.
+**Fluxo:** commits manuais pela UI do GitHub. Vercel MCP read-only (team `team_tAL46KvFEoVspik8TYtDhSOT`, project `prj_JpAw2EErfAaAusvGIpDjolj55jTE`).
+
+**Módulos:**
+- **I — Núcleo Tarifário (ANEEL):** `api/aneel-tarifas.ts` (datastore_search); `grafias-aneel.json` estável e auto-publicado.
+- **II — Demanda/BESS:** `PaginaDemanda.tsx` (Análise Detalhada 12 meses + Simulador Expresso + impressão); `motorDemanda.ts` (art. 301 validado); `SimuladorRapidoBess.tsx`.
+- **III — Capacitores/FP:** `FormularioManual`, `UploadFatura`, `UploadRelatorioMassa`, `ResultadoTecnico`, `CalculadoraHibridaFP` (plugada); motor `calculadoraIndustrial.ts`.
+- **IV — Solar on-grid (Lei 14.300):** não iniciado.
+- **V — Residencial (NBR 5410):** não iniciado.
+
+**Fatos confirmados úteis:**
+- `pdfjs-dist ^6.0.227` no `package.json`. Padrão de extração em `UploadFatura.tsx`: `getDocument` + worker `pdfjs-dist/build/pdf.worker.min.mjs?url` → `extrairTextoPDF` → `extrairDadosFaturaDoTexto`.
+- Consentimento LGPD é REAL no `CadastroLead.tsx` (checkbox + `validar()` bloqueia sem `lgpd`; salva `localStorage 'ocenergia_lead'`; `DadosLead.lgpd: boolean`). **NÃO existe `registrarConsentimento`** — era plano.
+- `parserFatura.ts` e `normalizadorParcial.ts` (`completarDadosParciais`) são reais (não stubs).
+
+**Regulatório (validado na fonte — REN 1.000/2021 art. 301):**
+- Fórmula: `C_ULTRAPASSAGEM = (DAM − DAC) × 2 × VRDULT`.
+- Gatilho 5% (consumo); é liga/desliga, não franquia. Base = (DAM − DAC) sobre contratada cheia.
+- VRDULT = tarifa de demanda do subgrupo (motor usa a TUSD de demanda informada — correto conceitualmente; a fatura real EMT mostrou 43,97 R$/kW medida e 36,50 não-consumida).
+
+---
+
+## 5. PRINCÍPIOS DE TRABALHO (não violar)
+
+1. Um arquivo por vez → deploy → confirmar READY → só então o próximo.
+2. Nunca chutar caminho de import nem assinatura — pedir o arquivo atual antes de editar.
+3. Verdade acima de utilidade; regra regulatória só com fonte primária.
+4. Componente isolado: criar, validar, depois plugar.
+5. Snapshot `/mnt/project/` não confiável; GitHub é a fonte de verdade.
+6. Um assistente por arquivo (Cursor já causou conflito; `revisao-1` abandonada).
+
+---
+
+## 6. BACKLOG (escolher 1 por vez na próxima sessão)
+
+1. **🔴 Corrigir mapeamento de tarifas** (bug da seção 2) — recomendado primeiro, pois afeta números mostrados ao cliente. Trazer `buscarTarifaAneel.ts`.
+2. **Plugar parser** na Análise Detalhada (usar padrão do `UploadFatura` + `parserFatura` para popular a barra "Entrada Única").
+3. **Reusar `<CadastroLead>` no Módulo II** (ganha checkbox LGPD; confirmar antes se compartilhar `localStorage 'ocenergia_lead'` entre módulos é desejado).
+4. **TUSDG** (medida + contratada) nos 2 simuladores — mexe no `motorDemanda.ts` validado; validar antes a regra de ultrapassagem de injeção (1%) na REN 1.000/2021.
+5. (Menor) Revisar superdimensionamento na seleção de hardware WEG.
+
+---
+
+## 7. DEPLOYS-CHAVE READY (histórico recente)
+
+- `294cc541` — PaginaDemanda.tsx com impressão (ATUAL, produção)
+- `6f8efe2b` — grafias auto-publicadas pelo robô (prova do [skip ci] removido)
+- `26fb586a` — remoção do [skip ci] do workflow
+- `c3610bf0` — motorDemanda art. 301 validado
+- `218b2a11` — tentativa anterior de PaginaDemanda que deu ERROR (substituída pelo `294cc541`)
+
+- 
