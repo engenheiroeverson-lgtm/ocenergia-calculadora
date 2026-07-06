@@ -1,8 +1,8 @@
 {
-  "geradoEm": "2026-06-29T17:15:37.576272+00:00",
+  "geradoEm": "2026-07-06T17:19:21.137629+00:00",
   "resourceId": "fcf2906c-7c32-4b9b-a637-054e7a5234f4",
-  "registrosLidos": 319573,
-  "totalInformadoAneel": 319573,
+  "registrosLidos": 319807,
+  "totalInformadoAneel": 319807,
   "colunasUsadas": {
     "distribuidoras": "SigAgente",
     "subgrupos": "DscSubGrupo",
@@ -11,8 +11,6 @@
     "detalhes": "DscDetalhe"
   },
   "distribuidoras": [
-    "AME",
-    "BOA VISTA",
     "CASTRO-DIS",
     "CEA",
     "CEDRAP",
@@ -126,7 +124,9 @@
     "RGE",
     "RGE SUL",
     "SULGIPE",
-    "UHENPAL"
+    "UHENPAL",
+    "ÂMBAR ENERGIA RR",
+    "Âmbar Amazonas"
   ],
   "subgrupos": [
     "A1",
