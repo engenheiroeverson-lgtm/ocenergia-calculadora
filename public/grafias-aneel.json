@@ -1,8 +1,8 @@
 {
-  "geradoEm": "2026-08-17T07:10:25.108949+00:00",
+  "geradoEm": "2026-08-24T07:13:14.176180+00:00",
   "resourceId": "fcf2906c-7c32-4b9b-a637-054e7a5234f4",
-  "registrosLidos": 324825,
-  "totalInformadoAneel": 324825,
+  "registrosLidos": 324629,
+  "totalInformadoAneel": 324629,
   "colunasUsadas": {
     "distribuidoras": "SigAgente",
     "subgrupos": "DscSubGrupo",
